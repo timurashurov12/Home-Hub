@@ -1,3 +1,4 @@
+import { CircleCheck, CircleX, Package, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { api, type Device, type InstallResult } from '../api/client';
 import { Modal } from './Modal';
@@ -54,7 +55,7 @@ export function InstallDialog({ devices, preselect, onClose, onDone }: {
           }}
         >
           <input type="file" accept=".apk" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          {file ? <>📦 {file.name} <small className="muted">({(file.size / 1048576).toFixed(1)} МБ)</small></> : 'Перетащи .apk сюда или нажми, чтобы выбрать'}
+          {file ? <><Package size={18} /> {file.name} <small className="muted">({(file.size / 1048576).toFixed(1)} МБ)</small></> : <><Upload size={18} /> Перетащи .apk сюда или нажми, чтобы выбрать</>}
         </label>
       ) : (
         <input className="full" placeholder="https://example.com/app.apk" value={url} onChange={(e) => setUrl(e.target.value)} />
@@ -73,7 +74,7 @@ export function InstallDialog({ devices, preselect, onClose, onDone }: {
       {error && <div className="result err">{error}</div>}
       {results?.map((r) => (
         <div key={r.id} className={`result ${r.ok ? 'ok' : 'err'}`}>
-          {r.ok ? '✅' : '❌'} {nameOf(r.id)}: {r.ok ? 'установлено' : r.output}
+          {r.ok ? <CircleCheck size={16} /> : <CircleX size={16} />} {nameOf(r.id)}: {r.ok ? 'установлено' : r.output}
         </div>
       ))}
 

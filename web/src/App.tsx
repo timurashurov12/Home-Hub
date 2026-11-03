@@ -1,3 +1,4 @@
+import { Download, Search, Tv } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api, type Device } from './api/client';
 import { DeviceDetail } from './components/DeviceDetail';
@@ -33,11 +34,11 @@ export function App() {
   return (
     <div className="layout">
       <header className="topbar">
-        <div className="brand">📺 TV Hub</div>
+        <div className="brand"><Tv size={20} /> TV Hub</div>
         <div className="spacer" />
-        <button onClick={() => setDialog('scan')}>🔍 Найти ТВ</button>
+        <button onClick={() => setDialog('scan')}><Search size={16} /> Найти ТВ</button>
         <button className="primary" disabled={!devices.some((d) => d.state === 'online')} onClick={() => setDialog('install')}>
-          ⬇ Установить APK
+          <Download size={16} /> Установить APK
         </button>
       </header>
 

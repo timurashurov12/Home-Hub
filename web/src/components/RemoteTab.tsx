@@ -1,3 +1,4 @@
+import { Camera, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, FastForward, House, LayoutGrid, Menu, Play, Power, Rewind, Settings, Undo2, Volume1, Volume2, VolumeX } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useAction } from '../toast';
@@ -52,35 +53,35 @@ export function RemoteTab({ id }: { id: string }) {
     <div className="remote-layout">
       <div className="remote">
         <div className="rrow">
-          <B k="power" cls="danger">⏻</B>
-          <B k="settings">⚙</B>
-          <B k="apps">▦</B>
+          <B k="power" cls="danger"><Power /></B>
+          <B k="settings"><Settings /></B>
+          <B k="apps"><LayoutGrid /></B>
         </div>
         <div className="dpad">
           <span />
-          <B k="up">▲</B>
+          <B k="up"><ChevronUp /></B>
           <span />
-          <B k="left">◀</B>
+          <B k="left"><ChevronLeft /></B>
           <B k="ok" cls="ok">OK</B>
-          <B k="right">▶</B>
+          <B k="right"><ChevronRight /></B>
           <span />
-          <B k="down">▼</B>
+          <B k="down"><ChevronDown /></B>
           <span />
         </div>
         <div className="rrow">
-          <B k="back">↩</B>
-          <B k="home">⌂</B>
-          <B k="menu">☰</B>
+          <B k="back"><Undo2 /></B>
+          <B k="home"><House /></B>
+          <B k="menu"><Menu /></B>
         </div>
         <div className="rrow">
-          <B k="volume_down">🔉</B>
-          <B k="mute">🔇</B>
-          <B k="volume_up">🔊</B>
+          <B k="volume_down"><Volume1 /></B>
+          <B k="mute"><VolumeX /></B>
+          <B k="volume_up"><Volume2 /></B>
         </div>
         <div className="rrow">
-          <B k="rewind">⏪</B>
-          <B k="play_pause">⏯</B>
-          <B k="fast_forward">⏩</B>
+          <B k="rewind"><Rewind /></B>
+          <B k="play_pause"><Play /></B>
+          <B k="fast_forward"><FastForward /></B>
         </div>
         <label className="check">
           <input type="checkbox" checked={kbd} onChange={(e) => setKbd(e.target.checked)} /> управлять с клавиатуры (стрелки, Enter, Esc, пробел, +/-)
@@ -101,12 +102,12 @@ export function RemoteTab({ id }: { id: string }) {
 
       <div className="screen">
         <div className="row">
-          <button onClick={refreshShot}>📸 Скриншот</button>
+          <button onClick={refreshShot}><Camera size={16} /> Скриншот</button>
           <label className="check">
             <input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); if (e.target.checked) refreshShot(); }} /> обновлять автоматически
           </label>
           <div className="spacer" />
-          {shot && <a href={shot} download={`tv-${Date.now()}.png`}>Скачать</a>}
+          {shot && <a className="link-icon" href={shot} download={`tv-${Date.now()}.png`}><Download size={16} /> Скачать</a>}
         </div>
         <div className={`screen-box ${loadingShot ? 'loading' : ''}`}>
           {shot ? (

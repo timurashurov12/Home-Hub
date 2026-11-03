@@ -1,3 +1,4 @@
+import { Moon, Power, RefreshCw, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, fmtBytes, fmtUptime, type DeviceInfo } from '../api/client';
 import { useAction } from '../toast';
@@ -45,12 +46,12 @@ export function OverviewTab({ id }: { id: string }) {
         </tbody>
       </table>
       <div className="row">
-        <button onClick={load}>↻ Обновить</button>
+        <button onClick={load}><RefreshCw size={16} /> Обновить</button>
         <button onClick={() => run(() => api.key(id, info.screenOn ? 'sleep' : 'wakeup')).then(() => setTimeout(load, 800))}>
-          {info.screenOn ? '🌙 Усыпить' : '☀️ Разбудить'}
+          {info.screenOn ? <><Moon size={16} /> Усыпить</> : <><Sun size={16} /> Разбудить</>}
         </button>
         <button className="danger" onClick={() => confirm('Перезагрузить ТВ?') && run(() => api.reboot(id), 'Перезагружается…')}>
-          ⟳ Перезагрузить
+          <Power size={16} /> Перезагрузить
         </button>
       </div>
     </div>

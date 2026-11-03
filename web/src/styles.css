@@ -111,3 +111,16 @@ table { border-collapse: collapse; width: 100%; }
 .tag.lvl-safe { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
 .tag.lvl-caution { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
 .tag.lvl-critical { background: color-mix(in srgb, var(--err) 18%, transparent); color: var(--err); }
+
+/* иконки Lucide */
+button, .brand, .link-icon, .dropzone, .result { display: inline-flex; align-items: center; gap: 6px; }
+button { justify-content: center; }
+.brand { gap: 8px; }
+.dropzone { display: flex; justify-content: center; }
+.result { display: flex; }
+.result.ok svg { color: var(--ok); flex-shrink: 0; }
+.result.err svg { color: var(--err); flex-shrink: 0; }
+.rk svg { width: 20px; height: 20px; }
+.dpad .rk svg { width: 26px; height: 26px; }
+.device-item { justify-content: flex-start; }
+.tabs button { display: inline-block; }

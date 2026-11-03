@@ -1,3 +1,4 @@
+import { Ban, CircleCheck, Download, Eraser, Play, RefreshCw, RotateCcw, Square, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { api, type AppAction, type AppInfo, type Device } from '../api/client';
 import { useAction, useToast } from '../toast';
@@ -15,12 +16,12 @@ const LEVEL = {
 function confirmDanger(a: AppInfo, what: string): boolean | null {
   if (a.level === 'critical') {
     const typed = prompt(
-      `⚠️ «${a.label}» критичен для системы.\n${a.note ?? ''}\n\nСтик может перестать загружаться или потерять связь с панелью. ` +
+      `ВНИМАНИЕ: «${a.label}» критичен для системы.\n${a.note ?? ''}\n\nСтик может перестать загружаться или потерять связь с панелью. ` +
         `Вернуть можно через вкладку «Удалённые» или сбросом до заводских.\n\nЧтобы ${what}, введи имя пакета:\n${a.package}`,
     );
     return typed === a.package ? true : null;
   }
-  const extra = a.level === 'caution' ? `\n\n⚠️ ${a.label}: ${a.note ?? 'пропадёт заметная функция'}` : '';
+  const extra = a.level === 'caution' ? `\n\nОсторожно: ${a.label}: ${a.note ?? 'пропадёт заметная функция'}` : '';
   const sys = a.system ? '\n\nПредустановленное приложение удаляется для пользователя, его можно вернуть во вкладке «Удалённые».' : '';
   return confirm(`${what[0].toUpperCase()}${what.slice(1)} ${a.package}?${extra}${sys}`) ? false : null;
 }
@@ -85,7 +86,7 @@ export function AppsTab({ device }: { device: Device }) {
     const caution = list.filter((a) => a.level === 'caution');
     const msg =
       action === 'uninstall'
-        ? `Удалить ${list.length} прилож.?${caution.length ? `\n\n⚠️ Среди них «осторожно»: ${caution.map((c) => c.label).join(', ')}` : ''}\n\nИх можно будет вернуть во вкладке «Удалённые».`
+        ? `Удалить ${list.length} прилож.?${caution.length ? `\n\nВнимание, среди них «осторожно»: ${caution.map((c) => c.label).join(', ')}` : ''}\n\nИх можно будет вернуть во вкладке «Удалённые».`
         : `Восстановить ${list.length} прилож.?`;
     if (!confirm(msg)) return;
     setBusy('*');
@@ -140,8 +141,8 @@ export function AppsTab({ device }: { device: Device }) {
             {busy === '*' ? 'Выполняю…' : view === 'removed' ? `Восстановить (${selected.size})` : `Удалить (${selected.size})`}
           </button>
         )}
-        <button onClick={load}>↻</button>
-        {view === 'user' && <button className="primary" onClick={() => setInstalling(true)}>⬇ Установить APK</button>}
+        <button onClick={load} title="Обновить"><RefreshCw size={16} /></button>
+        {view === 'user' && <button className="primary" onClick={() => setInstalling(true)}><Download size={16} /> Установить APK</button>}
       </div>
 
       {!apps ? (
@@ -176,18 +177,18 @@ export function AppsTab({ device }: { device: Device }) {
                 {view !== 'removed' && <td className="muted">{a.versionCode ?? '—'}</td>}
                 <td className="actions">
                   {a.removed ? (
-                    <button disabled={busy === a.package} onClick={() => act(a, 'restore', `Восстановлено: ${a.package}`, true)}>↺ Восстановить</button>
+                    <button disabled={busy === a.package} onClick={() => act(a, 'restore', `Восстановлено: ${a.package}`, true)}><RotateCcw size={16} /> Восстановить</button>
                   ) : (
                     <>
-                      <button disabled={busy === a.package} title="Запустить" onClick={() => run(() => api.launch(id, a.package), `Запущено: ${a.package}`)}>▶</button>
-                      <button disabled={busy === a.package} title="Остановить" onClick={() => act(a, 'stop', 'Остановлено')}>⏹</button>
-                      <button disabled={busy === a.package} title="Очистить данные" onClick={() => dangerous(a, 'clear', 'очистить данные', 'Данные очищены')}>🧹</button>
+                      <button disabled={busy === a.package} title="Запустить" onClick={() => run(() => api.launch(id, a.package), `Запущено: ${a.package}`)}><Play size={16} /></button>
+                      <button disabled={busy === a.package} title="Остановить" onClick={() => act(a, 'stop', 'Остановлено')}><Square size={16} /></button>
+                      <button disabled={busy === a.package} title="Очистить данные" onClick={() => dangerous(a, 'clear', 'очистить данные', 'Данные очищены')}><Eraser size={16} /></button>
                       <button
                         disabled={busy === a.package}
                         title={a.disabled ? 'Включить' : 'Отключить'}
                         onClick={() => (a.disabled ? act(a, 'enable', 'Включено', true) : dangerous(a, 'disable', 'отключить', 'Отключено', true))}
-                      >{a.disabled ? '✅' : '🚫'}</button>
-                      <button className="danger" disabled={busy === a.package} title="Удалить" onClick={() => dangerous(a, 'uninstall', 'удалить', 'Удалено', true)}>🗑</button>
+                      >{a.disabled ? <CircleCheck size={16} /> : <Ban size={16} />}</button>
+                      <button className="danger" disabled={busy === a.package} title="Удалить" onClick={() => dangerous(a, 'uninstall', 'удалить', 'Удалено', true)}><Trash2 size={16} /></button>
                     </>
                   )}
                 </td>

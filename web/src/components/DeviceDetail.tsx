@@ -1,3 +1,4 @@
+import { Pencil, PlugZap, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { api, type Device } from '../api/client';
 import { useAction } from '../toast';
@@ -40,9 +41,9 @@ export function DeviceDetail({ device, onChanged, onRemoved }: { device: Device;
           </div>
         </div>
         <div className="spacer" />
-        {device.saved && <button onClick={rename}>✏️ Переименовать</button>}
-        {device.saved && <button onClick={() => run(() => api.connect(device.id), 'Переподключено').then(onChanged)}>🔌 Переподключить</button>}
-        {device.saved && <button className="danger" onClick={remove}>🗑</button>}
+        {device.saved && <button onClick={rename}><Pencil size={16} /> Переименовать</button>}
+        {device.saved && <button onClick={() => run(() => api.connect(device.id), 'Переподключено').then(onChanged)}><PlugZap size={16} /> Переподключить</button>}
+        {device.saved && <button className="danger" onClick={remove} title="Удалить из списка"><Trash2 size={16} /></button>}
       </div>
 
       {device.state === 'unauthorized' && (

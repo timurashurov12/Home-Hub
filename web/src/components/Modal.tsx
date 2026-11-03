@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -6,7 +7,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       <div className="modal">
         <div className="modal-head">
           <h3>{title}</h3>
-          <button className="ghost" onClick={onClose}>✕</button>
+          <button className="ghost" onClick={onClose} title="Закрыть"><X size={18} /></button>
         </div>
         {children}
       </div>
