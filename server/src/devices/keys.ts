@@ -1,0 +1,27 @@
+/** Имена кнопок пульта → Android KEYCODE. */
+export const KEYS: Record<string, number> = {
+  up: 19,
+  down: 20,
+  left: 21,
+  right: 22,
+  ok: 23,
+  back: 4,
+  home: 3,
+  menu: 82,
+  power: 26,
+  sleep: 223,
+  wakeup: 224,
+  volume_up: 24,
+  volume_down: 25,
+  mute: 164,
+  play_pause: 85,
+  next: 87,
+  prev: 88,
+  rewind: 89,
+  fast_forward: 90,
+  settings: 176,
+  apps: 284, // KEYCODE_ALL_APPS
+  search: 84,
+  del: 67,
+  enter: 66,
+};
