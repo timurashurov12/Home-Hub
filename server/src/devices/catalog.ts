@@ -79,7 +79,10 @@ const EXACT: Record<string, CatalogEntry> = {
   'com.android.egg': C('safe', 'Пасхалка Android'),
   'com.miui.tv.analytics': C('safe', 'Аналитика Xiaomi', 'Сбор статистики, для работы не нужен'),
   'com.xiaomi.mitv.updateservice': C('caution', 'Обновления прошивки Xiaomi', 'Перестанут приходить обновления системы'),
-  'com.mitv.tvhome.atv': C('caution', 'Компонент главного экрана Xiaomi', 'Занимает много памяти; проверь главный экран после отключения'),
+  'com.mitv.tvhome.atv': C('safe', 'PatchWall (оболочка Xiaomi)', 'Работает не во всех странах, занимает около 200 МБ памяти. Безопасно, если главный экран — Google TV'),
+  'com.mitv.tvhome.mitvplus': C('safe', 'Xiaomi TV+', 'Бесплатные каналы Xiaomi, работают не во всех странах'),
+  'com.mitv.tvhome.michannel': C('safe', 'Каналы PatchWall', 'Нужны только вместе с PatchWall'),
+  'com.xiaomi.statistic': C('safe', 'Статистика Xiaomi', 'Сбор статистики, для работы не нужен'),
   'com.google.android.apps.tv.launcherx.coreservices': C('caution', 'Сервисы Google TV лаунчера'),
 };
 

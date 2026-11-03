@@ -173,6 +173,16 @@ export class DevicesService {
     };
   }
 
+  /** Пакет активного главного экрана (лаунчера); его нельзя удалять без явного подтверждения. */
+  async activeLauncher(id: string): Promise<string | null> {
+    const out = await this.adb
+      .shell(id, 'cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME')
+      .catch(() => '');
+    const comp = out.trim().split('\n').pop()?.trim() ?? '';
+    const pkg = comp.split('/')[0];
+    return /^[\w.]+$/.test(pkg) && pkg !== 'android' ? pkg : null;
+  }
+
   async apps(id: string, includeSystem: boolean): Promise<AppInfo[]> {
     const parse = (out: string) =>
       out
@@ -183,12 +193,13 @@ export class DevicesService {
           const m = l.match(/^package:(\S+)(?:\s+versionCode:(\d+))?/);
           return { pkg: m![1], ver: m![2] };
         });
-    const [third, disabled, system, everything, installed] = await Promise.all([
+    const [third, disabled, system, everything, installed, launcher] = await Promise.all([
       this.adb.shell(id, 'pm list packages -3 --show-versioncode'),
       this.adb.shell(id, 'pm list packages -d'),
       includeSystem ? this.adb.shell(id, 'pm list packages -s --show-versioncode') : Promise.resolve(''),
       includeSystem ? this.adb.shell(id, 'pm list packages -u') : Promise.resolve(''),
       includeSystem ? this.adb.shell(id, 'pm list packages') : Promise.resolve(''),
+      this.activeLauncher(id),
     ]);
     const disabledSet = new Set(parse(disabled).map((p) => p.pkg));
     const installedSet = new Set(parse(installed).map((p) => p.pkg));
@@ -199,6 +210,9 @@ export class DevicesService {
       disabled: disabledSet.has(pkg),
       removed,
       ...(sys ? classify(pkg) : undefined),
+      ...(pkg === launcher
+        ? { level: 'critical' as Level, label: 'Активный главный экран', note: 'Сейчас это ваш лаунчер. Сначала выберите другой главный экран' }
+        : undefined),
     });
     const apps: AppInfo[] = [
       ...parse(third).map((p) => mk(p.pkg, p.ver, false)),
@@ -248,8 +262,12 @@ export class DevicesService {
   ) {
     assertPackage(pkg);
     const entry = classify(pkg);
-    if (entry?.level === 'critical' && ['uninstall', 'disable', 'clear'].includes(action) && !force) {
+    const destructive = ['uninstall', 'disable', 'clear'].includes(action);
+    if (entry?.level === 'critical' && destructive && !force) {
       throw new BadRequestException(`«${entry.label}» критичен для системы. Нужно явное подтверждение.`);
+    }
+    if (destructive && action !== 'clear' && !force && (await this.activeLauncher(id)) === pkg) {
+      throw new BadRequestException('Это активный главный экран ТВ. Сначала выберите другой лаунчер.');
     }
     const cmd = {
       stop: `am force-stop ${pkg}`,
