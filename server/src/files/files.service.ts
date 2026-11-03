@@ -52,6 +52,10 @@ const KNOWN_PLAYERS: Record<string, string> = {
   'com.android.gallery3d': 'Галерея',
   'org.jellyfin.androidtv': 'Jellyfin',
   'com.google.android.apps.mediashell': 'Chromecast',
+  'com.alphainventor.filemanager': 'File Commander',
+  'com.tcl.browser': 'TCL Browser',
+  'org.mozilla.tv.firefox': 'Firefox',
+  'com.retroarch': 'RetroArch',
 };
 
 const AUDIO_EXT = /\.(mp3|flac|m4a|aac|ogg|opus|wav)(\?|$)/i;
@@ -75,7 +79,7 @@ export class FilesService {
     // stat по каждому элементу; %F — тип, %s — размер, %Y — mtime, %n — путь
     const out = await this.adb.shell(
       id,
-      `cd ${shQuote(dir)} 2>/dev/null || { echo __NODIR__; exit 0; }; for f in * .[!.]*; do [ -e "$f" ] && stat -c '%F|%s|%Y|%n' -- "$f"; done`,
+      `cd ${shQuote(dir)} 2>/dev/null || { echo __NODIR__; exit 0; }; for f in * .[!.]*; do [ -e "$f" ] || continue; stat -c '%F|%s|%Y|%n' -- "$f"; done; true`,
       30_000,
     );
     if (out.includes('__NODIR__')) throw new BadRequestException('Папка не найдена');
@@ -165,11 +169,15 @@ export class FilesService {
       `cmd package query-activities --brief -a android.intent.action.VIEW -d 'https://example.com/v.mp4' -t 'video/*'`,
       `cmd package query-activities --brief -a android.intent.action.VIEW -d 'https://www.youtube.com/watch?v=x'`,
     ];
-    const out = (await Promise.all(queries.map((q) => this.adb.shell(id, q).catch(() => '')))).join('\n');
+    const res = await Promise.allSettled(queries.map((q) => this.adb.shell(id, q)));
+    const failed = res.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    if (failed && res.every((r) => r.status === 'rejected')) throw new BadRequestException((failed.reason as Error).message);
+    const out = res.map((r) => (r.status === 'fulfilled' ? r.value : '')).join('\n');
     const seen = new Map<string, Player>();
     for (const m of out.matchAll(/^\s*([\w.]+)\/([\w.$]+)\s*$/gm)) {
       const [, pkg, act] = m;
-      if (seen.has(pkg) || /^(com\.android\.(chrome|browser)|android)$/.test(pkg)) continue;
+      // системные заглушки и «выбор приложения» — не плееры
+      if (seen.has(pkg) || /^(android|com\.android\.(chrome|browser)|com\.google\.android\.tv\.frameworkpackagestubs)$/.test(pkg)) continue;
       seen.set(pkg, { package: pkg, activity: act, label: KNOWN_PLAYERS[pkg] ?? pkg });
     }
     return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label));
