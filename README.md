@@ -67,6 +67,10 @@ docker compose -f docker-compose.bridge.yml up -d --build
 
 Docker Desktop на Mac держит контейнер в отдельной виртуальной сети, а macOS 15+ может не пускать Docker в локальную сеть. Без Docker этих проблем нет:
 
+Проще всего без терминала: открой папку проекта в Finder и дважды кликни **Start TV Hub.command** (при первом запуске: правый клик → Открыть). Панель откроется в браузере сама. Перед этим останови контейнер в Docker Desktop, если он запущен.
+
+Или из терминала:
+
 ```bash
 docker compose -f docker-compose.bridge.yml down   # если контейнер запущен
 ./scripts/start-mac.sh                              # поставит adb и node через Homebrew, соберёт и запустит
