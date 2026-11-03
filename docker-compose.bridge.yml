@@ -1,0 +1,21 @@
+# Вариант для Docker Desktop (macOS / Windows), где host-сеть может быть недоступна.
+# mDNS здесь не работает, поэтому подсеть для сканирования нужно указать явно.
+#   docker compose -f docker-compose.bridge.yml up -d --build
+services:
+  tv-hub:
+    build: .
+    image: tv-hub:latest
+    container_name: tv-hub
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      SCAN_SUBNETS: ${SCAN_SUBNETS:-192.168.1.0}
+    volumes:
+      - tv-hub-data:/data
+      - tv-hub-adb-keys:/root/.android
+
+volumes:
+  tv-hub-data:
+  tv-hub-adb-keys:

@@ -1,0 +1,20 @@
+services:
+  tv-hub:
+    build: .
+    image: tv-hub:latest
+    container_name: tv-hub
+    restart: unless-stopped
+    # Host-сеть: контейнер видит домашнюю подсеть напрямую, работают автопоиск и mDNS.
+    # Панель будет на http://<IP компьютера>:3000
+    network_mode: host
+    environment:
+      PORT: 3000
+      # Необязательно: какие подсети сканировать (через запятую)
+      # SCAN_SUBNETS: 192.168.1.0
+    volumes:
+      - tv-hub-data:/data
+      - tv-hub-adb-keys:/root/.android
+
+volumes:
+  tv-hub-data:
+  tv-hub-adb-keys:
