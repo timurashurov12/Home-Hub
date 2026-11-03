@@ -139,7 +139,8 @@ export class StatsService {
       const dt = b.total - a.total;
       usage = dt > 0 ? Math.round((1 - (b.idle - a.idle) / dt) * 1000) / 10 : 0;
     }
-    const load = (p[2].split(/\s+/).slice(0, 3).map(Number) as [number, number, number]) ?? [0, 0, 0];
+    const la = p[2].split(/\s+/);
+    const load = [0, 1, 2].map((i) => Number(la[i]) || 0) as [number, number, number];
 
     const sysfsTemps = p[3]
       .split('\n')
