@@ -1,7 +1,7 @@
 import { Cast, CircleCheck, Plus, Radar, Stethoscope, Tv, TriangleAlert, Wifi } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, autoScanPref, type Device, type FoundHost, type ProbeResult } from '../api/client';
-import { useAction } from '../toast';
+import { useAction, useToast } from '../toast';
 import { Modal } from './Modal';
 
 const PROBE_TEXT: Record<string, string> = {
@@ -26,6 +26,7 @@ export function ScanDialog({ known, initial, onClose, onAdded }: {
   onAdded: () => void;
 }) {
   const run = useAction();
+  const toast = useToast();
   const [found, setFound] = useState<FoundHost[] | null>(initial ?? null);
   const [scanning, setScanning] = useState(false);
   const [subnet, setSubnet] = useState('');
@@ -64,7 +65,8 @@ export function ScanDialog({ known, initial, onClose, onAdded }: {
 
   const add = async (host: string, port: number, name?: string) => {
     setBusy(host);
-    const ok = await run(() => api.addDevice(host, port, name), `Подключено: ${name ?? host}`);
+    const ok = await run(() => api.addDevice(host, port, name));
+    if (ok) toast(ok.pendingAuth ? `${name ?? host}: подтверди «Разрешить отладку» на экране ТВ` : `Подключено: ${name ?? host}`);
     setBusy(null);
     if (ok) onAdded();
     return !!ok;

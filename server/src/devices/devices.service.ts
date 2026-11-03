@@ -80,7 +80,16 @@ export class DevicesService {
   async add(host: string, port = 5555, name?: string) {
     if (!HOST_RE.test(host)) throw new BadRequestException('Некорректный адрес');
     const id = `${host}:${port}`;
-    await this.adb.connect(host, port);
+    let pendingAuth = false;
+    try {
+      await this.adb.connect(host, port);
+    } catch (e) {
+      // При первом подключении ТВ показывает «Разрешить отладку?», и adb отвечает
+      // «failed to authenticate». Устройство всё равно сохраняем: после нажатия
+      // «Разрешить» автопереподключение подхватит его само.
+      if (!/failed to authenticate|unauthorized/i.test((e as Error).message)) throw e;
+      pendingAuth = true;
+    }
     let model: string | undefined;
     try {
       model = (await this.adb.shell(id, 'getprop ro.product.model', 8000)).trim();
@@ -88,13 +97,14 @@ export class DevicesService {
       /* устройство может ждать подтверждения на экране ТВ */
     }
     const existing = await this.store.get(id);
-    return this.store.upsert({
+    const saved = await this.store.upsert({
       id,
       host,
       port,
       name: name || existing?.name || model || id,
       addedAt: existing?.addedAt ?? new Date().toISOString(),
     });
+    return { ...saved, pendingAuth };
   }
 
   async rename(id: string, name: string) {

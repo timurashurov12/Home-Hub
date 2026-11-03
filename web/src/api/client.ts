@@ -88,7 +88,8 @@ const p = (pkg: string) => encodeURIComponent(pkg);
 export const api = {
   health: () => req<{ ok: boolean; adb: boolean }>('GET', '/api/health'),
   devices: () => req<Device[]>('GET', '/api/devices'),
-  addDevice: (host: string, port: number, name?: string) => req('POST', '/api/devices', { host, port, name }),
+  addDevice: (host: string, port: number, name?: string) =>
+    req<{ id: string; pendingAuth?: boolean }>('POST', '/api/devices', { host, port, name }),
   rename: (id: string, name: string) => req('PATCH', d(id), { name }),
   remove: (id: string) => req('DELETE', d(id)),
   connect: (id: string) => req('POST', `${d(id)}/connect`),
