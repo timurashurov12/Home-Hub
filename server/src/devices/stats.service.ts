@@ -1,6 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { AdbService } from '../adb/adb.service';
 import { CacheService } from '../cache/cache.service';
+import { DevicesStore } from './devices.store';
 
 export interface ProcStat {
   pid: number;
@@ -34,8 +35,12 @@ export interface StatsPoint {
   temp: number | null;
 }
 
-/** Сколько живёт снимок: несколько вкладок/клиентов за это время получают один и тот же ответ. */
+/** Снимок моложе этого считается свежим; старше — отдаём сразу, но обновляем в фоне. */
 const STATS_TTL_MS = Number(process.env.STATS_CACHE_MS ?? 4000);
+/** Сколько снимок вообще хранится в кеше (устаревший лучше, чем 8 секунд ожидания). */
+const STATS_KEEP_MS = 10 * 60 * 1000;
+/** Фоновый сбор для всех онлайн-ТВ, чтобы вкладка открывалась сразу. 0 — выключено. */
+const BG_INTERVAL_MS = Number(process.env.STATS_BG_INTERVAL_MS ?? 60_000);
 /** История для графиков: 720 точек ≈ 1 час при опросе раз в 5 с. */
 const HISTORY_MAX = 720;
 const HISTORY_TTL_MS = 24 * 3600 * 1000;
@@ -128,26 +133,66 @@ export function parseMeminfo(out: string, limit = 10): AppMem[] {
 }
 
 @Injectable()
-export class StatsService {
+export class StatsService implements OnApplicationBootstrap, OnModuleDestroy {
+  private readonly log = new Logger('Stats');
   private readonly inflight = new Map<string, Promise<DeviceStats>>();
+  private timer?: NodeJS.Timeout;
 
   constructor(
     @Inject(AdbService) private readonly adb: AdbService,
     @Inject(CacheService) private readonly cache: CacheService,
+    @Inject(DevicesStore) private readonly store: DevicesStore,
   ) {}
 
-  /** Снимок из кеша, если он свежий; иначе один общий запрос к приставке. */
-  async stats(id: string, fresh = false): Promise<DeviceStats & { cached: boolean }> {
-    if (!fresh) {
-      const hit = await this.cache.getJson<DeviceStats>(`stats:${id}`);
-      if (hit) return { ...hit, cached: true };
+  onApplicationBootstrap() {
+    if (BG_INTERVAL_MS <= 0) return;
+    // первый прогрев чуть позже, чтобы автопереподключение успело поднять ТВ
+    const first = setTimeout(() => this.warmAll(), 10_000);
+    first.unref();
+    this.timer = setInterval(() => this.warmAll(), BG_INTERVAL_MS);
+    this.timer.unref();
+  }
+
+  onModuleDestroy() {
+    clearInterval(this.timer);
+  }
+
+  /** Собирает статистику по всем сохранённым ТВ, которые сейчас онлайн. По одному, чтобы не грузить сеть и ТВ. */
+  private async warmAll() {
+    try {
+      const online = new Set((await this.adb.devices()).filter((d) => d.state === 'device').map((d) => d.serial));
+      for (const d of await this.store.all()) {
+        if (online.has(d.id)) await this.refresh(d.id).catch(() => undefined);
+      }
+    } catch (e) {
+      this.log.debug(`Фоновый сбор не удался: ${(e as Error).message}`);
     }
+  }
+
+  /** Один общий сбор на устройство, сколько бы запросов ни пришло одновременно. */
+  private refresh(id: string) {
     let p = this.inflight.get(id);
     if (!p) {
       p = this.collectAndStore(id).finally(() => this.inflight.delete(id));
       this.inflight.set(id, p);
     }
-    return { ...(await p), cached: false };
+    return p;
+  }
+
+  /**
+   * Stale-while-revalidate: снимок из кеша отдаётся сразу; если он старше STATS_TTL_MS,
+   * в фоне запускается обновление. Ждём приставку, только если кеша нет совсем или fresh=true.
+   */
+  async stats(id: string, fresh = false): Promise<DeviceStats & { cached: boolean; stale: boolean }> {
+    if (!fresh) {
+      const hit = await this.cache.getJson<DeviceStats>(`stats:${id}`);
+      if (hit) {
+        const stale = Date.now() - Date.parse(hit.at) > STATS_TTL_MS;
+        if (stale) this.refresh(id).catch(() => undefined);
+        return { ...hit, cached: true, stale };
+      }
+    }
+    return { ...(await this.refresh(id)), cached: false, stale: false };
   }
 
   history(id: string) {
@@ -168,7 +213,7 @@ export class StatsService {
       temp: s.temps.length ? Math.max(...s.temps.map((t) => t.celsius)) : null,
     };
     await Promise.all([
-      this.cache.setJson(`stats:${id}`, s, STATS_TTL_MS),
+      this.cache.setJson(`stats:${id}`, s, STATS_KEEP_MS),
       this.cache.pushCapped(`stats:hist:${id}`, point, HISTORY_MAX, HISTORY_TTL_MS),
     ]);
     return s;

@@ -77,6 +77,7 @@ export interface DeviceStats {
   topCpu: { pid: number; name: string; cpu: number; mem: number; res: number }[];
   topMem: { name: string; pid: number; bytes: number }[];
   cached?: boolean;
+  stale?: boolean;
 }
 
 export interface OptimizeStatus {

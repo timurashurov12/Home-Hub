@@ -1,4 +1,4 @@
-import { Activity, Cpu, HardDrive, MemoryStick, Pause, Play, Square, Thermometer } from 'lucide-react';
+import { Activity, Cpu, HardDrive, Loader2, MemoryStick, Pause, Play, Square, Thermometer } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, fmtBytes, type DeviceStats } from '../api/client';
 import { useAction } from '../toast';
@@ -42,6 +42,7 @@ export function MonitorTab({ id }: { id: string }) {
   const [history, setHistory] = useState<number[]>([]);
   const [live, setLive] = useState(true);
   const busy = useRef(false);
+  const lastAt = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (busy.current) return;
@@ -50,8 +51,11 @@ export function MonitorTab({ id }: { id: string }) {
       const s = await api.stats(id);
       setStats(s);
       setError(null);
-      // кешированный снимок уже есть в истории — не дублируем точку
-      setHistory((h) => (s.cached ? h : [...h, s.cpu.usage].slice(-60)));
+      // снимок из кеша мог уже попасть в график — добавляем точку, только если данные новые
+      if (s.at !== lastAt.current) {
+        lastAt.current = s.at;
+        setHistory((h) => [...h, s.cpu.usage].slice(-60));
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -61,12 +65,17 @@ export function MonitorTab({ id }: { id: string }) {
 
   useEffect(() => {
     setHistory([]);
+    lastAt.current = null;
     // история хранится на сервере (Redis), поэтому график не обнуляется при перезагрузке страницы
     api
       .statsHistory(id)
-      .then((h) => setHistory((cur) => [...h.map((p) => p.cpu), ...cur].slice(-60)))
-      .catch(() => undefined);
-    load();
+      .then((h) => {
+        if (!h.length) return;
+        lastAt.current = h[h.length - 1].at;
+        setHistory(h.map((p) => p.cpu).slice(-60));
+      })
+      .catch(() => undefined)
+      .finally(load);
   }, [id, load]);
 
   useEffect(() => {
@@ -82,7 +91,9 @@ export function MonitorTab({ id }: { id: string }) {
   };
 
   if (error && !stats) return <div className="result err">{error}</div>;
-  if (!stats) return <div className="empty">Собираю данные с приставки…</div>;
+  if (!stats) return <div className="empty">
+        <Loader2 size={18} className="spin" /> Собираю данные с приставки… Первый раз это занимает около 10 секунд.
+      </div>;
 
   const memUsed = stats.memory.total - stats.memory.available;
   const memPct = stats.memory.total ? (memUsed / stats.memory.total) * 100 : 0;
@@ -93,7 +104,8 @@ export function MonitorTab({ id }: { id: string }) {
     <div className="monitor">
       <div className="row">
         <span className="muted small">
-          Обновлено {new Date(stats.at).toLocaleTimeString()} {error && <span className="warn-text">· ошибка: {error}</span>}
+          Обновлено {new Date(stats.at).toLocaleTimeString()}
+          {stats.stale && <span className="muted"> · обновляется…</span>} {error && <span className="warn-text">· ошибка: {error}</span>}
         </span>
         <div className="spacer" />
         <button onClick={() => setLive((v) => !v)}>
