@@ -3,3 +3,4 @@
 **/*.tsbuildinfo
 data
 .git
+dump.rdb
