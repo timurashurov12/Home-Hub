@@ -7,6 +7,7 @@ import { diskStorage } from 'multer';
 import { tmpdir } from 'node:os';
 import { rm } from 'node:fs/promises';
 import { DevicesService } from './devices.service';
+import { StatsService } from './stats.service';
 
 const apkUpload = FileInterceptor('apk', {
   storage: diskStorage({ destination: tmpdir(), filename: (_r, _f, cb) => cb(null, `tvhub-${Date.now()}-${Math.random().toString(36).slice(2)}.apk`) }),
@@ -22,7 +23,16 @@ function parseIds(raw: string | string[] | undefined): string[] {
 
 @Controller('api')
 export class DevicesController {
-  constructor(@Inject(DevicesService) private readonly devices: DevicesService) {}
+  constructor(
+    @Inject(DevicesService) private readonly devices: DevicesService,
+    @Inject(StatsService) private readonly statsSvc: StatsService,
+  ) {}
+
+  /** Мониторинг: CPU, температура, память, топ процессов */
+  @Get('devices/:id/stats')
+  stats(@Param('id') id: string) {
+    return this.statsSvc.stats(id);
+  }
 
   @Get('devices')
   list() {

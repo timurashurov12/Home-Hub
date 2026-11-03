@@ -8,6 +8,16 @@ export interface SavedDevice {
   host: string;
   port: number;
   addedAt: string;
+  /** применённый пресет оптимизации и всё, что нужно для отката */
+  optimize?: OptimizeState;
+}
+
+export interface OptimizeState {
+  preset: 'soft' | 'aggressive';
+  /** исходные значения settings (namespace:key → value | 'null') */
+  prevSettings: Record<string, string>;
+  /** пакеты, которые отключили мы (и только их включаем обратно) */
+  disabled: string[];
 }
 
 /** Простое JSON-хранилище сохранённых ТВ (data/devices.json). */
@@ -38,6 +48,14 @@ export class DevicesStore {
     else list.push(d);
     await this.flush();
     return d;
+  }
+
+  async clearOptimize(id: string) {
+    const d = await this.get(id);
+    if (d) {
+      delete d.optimize;
+      await this.flush();
+    }
   }
 
   async remove(id: string) {

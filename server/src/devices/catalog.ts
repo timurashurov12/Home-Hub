@@ -77,6 +77,9 @@ const EXACT: Record<string, CatalogEntry> = {
   'com.google.android.syncadapters.contacts': C('safe', 'Синхронизация контактов'),
   'com.google.android.tts': C('safe', 'Синтез речи Google'),
   'com.android.egg': C('safe', 'Пасхалка Android'),
+  'com.miui.tv.analytics': C('safe', 'Аналитика Xiaomi', 'Сбор статистики, для работы не нужен'),
+  'com.xiaomi.mitv.updateservice': C('caution', 'Обновления прошивки Xiaomi', 'Перестанут приходить обновления системы'),
+  'com.mitv.tvhome.atv': C('caution', 'Компонент главного экрана Xiaomi', 'Занимает много памяти; проверь главный экран после отключения'),
   'com.google.android.apps.tv.launcherx.coreservices': C('caution', 'Сервисы Google TV лаунчера'),
 };
 

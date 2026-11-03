@@ -60,6 +60,28 @@ export interface AppInfo {
   note?: string;
 }
 
+export interface DeviceStats {
+  at: string;
+  cpu: { usage: number; cores: number; load: [number, number, number] };
+  temps: { zone: string; celsius: number }[];
+  memory: { total: number; available: number; swapTotal: number; swapFree: number };
+  storage: { total: number; used: number; available: number } | null;
+  topCpu: { pid: number; name: string; cpu: number; mem: number; res: number }[];
+  topMem: { name: string; pid: number; bytes: number }[];
+}
+
+export interface OptimizeStatus {
+  preset: 'soft' | 'aggressive' | null;
+  disabled: string[];
+  settings: Record<string, string>;
+}
+
+export interface FreeResult {
+  before: number;
+  after: number;
+  freed: number;
+}
+
 export type AppAction = 'stop' | 'clear' | 'uninstall' | 'disable' | 'enable' | 'restore';
 
 export interface InstallResult {
@@ -113,6 +135,12 @@ export const api = {
   openUrl: (id: string, url: string) => req('POST', `${d(id)}/open-url`, { url }),
   screenshotUrl: (id: string) => `${d(id)}/screenshot?t=${Date.now()}`,
   reboot: (id: string) => req('POST', `${d(id)}/reboot`),
+  optimize: (id: string) => req<OptimizeStatus>('GET', `${d(id)}/optimize`),
+  optimizeFree: (id: string) => req<FreeResult>('POST', `${d(id)}/optimize/free`),
+  optimizePreset: (id: string, preset: 'soft' | 'aggressive') =>
+    req<OptimizeStatus & { freed: FreeResult }>('POST', `${d(id)}/optimize/preset`, { preset }),
+  optimizeRevert: (id: string) => req<OptimizeStatus>('POST', `${d(id)}/optimize/revert`),
+  stats: (id: string) => req<DeviceStats>('GET', `${d(id)}/stats`),
 };
 
 export function fmtBytes(n: number) {
