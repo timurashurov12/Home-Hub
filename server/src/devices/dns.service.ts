@@ -76,7 +76,8 @@ export class DnsService {
     const [cur, d] = await Promise.all([this.read(id), this.store.get(id)]);
     return {
       supported: cur.sdk >= 28,
-      mode: cur.mode, // off | opportunistic | hostname | null
+      // не задано = заводское «Автоматически» (opportunistic)
+      mode: cur.mode === 'null' ? 'opportunistic' : cur.mode,
       host: cur.mode === 'hostname' && cur.spec !== 'null' ? cur.spec : null,
       enabledByHub: !!d?.dns,
       provider: d?.dns?.provider ?? null,

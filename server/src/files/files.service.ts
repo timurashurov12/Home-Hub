@@ -171,7 +171,7 @@ export class FilesService {
     ];
     const res = await Promise.allSettled(queries.map((q) => this.adb.shell(id, q)));
     const failed = res.find((r): r is PromiseRejectedResult => r.status === 'rejected');
-    if (failed && res.every((r) => r.status === 'rejected')) throw new BadRequestException((failed.reason as Error).message);
+    if (failed && res.every((r) => r.status === 'rejected')) throw failed.reason;
     const out = res.map((r) => (r.status === 'fulfilled' ? r.value : '')).join('\n');
     const seen = new Map<string, Player>();
     for (const m of out.matchAll(/^\s*([\w.]+)\/([\w.$]+)\s*$/gm)) {
