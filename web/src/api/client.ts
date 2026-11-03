@@ -60,6 +60,14 @@ export interface AppInfo {
   note?: string;
 }
 
+export interface StatsPoint {
+  at: string;
+  cpu: number;
+  memAvailable: number;
+  memTotal: number;
+  temp: number | null;
+}
+
 export interface DeviceStats {
   at: string;
   cpu: { usage: number; cores: number; load: [number, number, number] };
@@ -68,6 +76,7 @@ export interface DeviceStats {
   storage: { total: number; used: number; available: number } | null;
   topCpu: { pid: number; name: string; cpu: number; mem: number; res: number }[];
   topMem: { name: string; pid: number; bytes: number }[];
+  cached?: boolean;
 }
 
 export interface OptimizeStatus {
@@ -140,7 +149,8 @@ export const api = {
   optimizePreset: (id: string, preset: 'soft' | 'aggressive') =>
     req<OptimizeStatus & { freed: FreeResult }>('POST', `${d(id)}/optimize/preset`, { preset }),
   optimizeRevert: (id: string) => req<OptimizeStatus>('POST', `${d(id)}/optimize/revert`),
-  stats: (id: string) => req<DeviceStats>('GET', `${d(id)}/stats`),
+  stats: (id: string, fresh = false) => req<DeviceStats>('GET', `${d(id)}/stats${fresh ? '?fresh=1' : ''}`),
+  statsHistory: (id: string) => req<StatsPoint[]>('GET', `${d(id)}/stats/history`),
 };
 
 export function fmtBytes(n: number) {

@@ -12,10 +12,23 @@ services:
     environment:
       PORT: ${TVHUB_PORT:-8765}
       SCAN_SUBNETS: ${SCAN_SUBNETS:-}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - redis
     volumes:
       - tv-hub-data:/data
       - tv-hub-adb-keys:/root/.android
 
+  redis:
+    image: redis:7-alpine
+    container_name: tv-hub-redis
+    restart: unless-stopped
+    # Кеш мониторинга. Порт наружу не публикуется — Redis виден только контейнеру tv-hub.
+    command: ["redis-server", "--save", "60", "1", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - tv-hub-redis:/data
+
 volumes:
   tv-hub-data:
   tv-hub-adb-keys:
+  tv-hub-redis:

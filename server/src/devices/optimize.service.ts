@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { AdbService } from '../adb/adb.service';
 import { DevicesStore, type OptimizeState } from './devices.store';
+import { CacheService } from '../cache/cache.service';
 
 type Preset = OptimizeState['preset'];
 
@@ -46,6 +47,7 @@ export class OptimizeService {
   constructor(
     @Inject(AdbService) private readonly adb: AdbService,
     @Inject(DevicesStore) private readonly store: DevicesStore,
+    @Inject(CacheService) private readonly cache: CacheService,
   ) {}
 
   private async saved(id: string) {
@@ -88,6 +90,7 @@ export class OptimizeService {
     await this.adb.shell(id, 'pm trim-caches 999G', 60_000).catch(() => undefined);
     await new Promise((r) => setTimeout(r, 1500));
     const after = await this.memAvailable(id);
+    await this.cache.del(`stats:${id}`); // следующий опрос мониторинга покажет новое состояние
     return { before, after, freed: Math.max(0, after - before) };
   }
 

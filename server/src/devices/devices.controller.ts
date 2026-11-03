@@ -30,8 +30,13 @@ export class DevicesController {
 
   /** Мониторинг: CPU, температура, память, топ процессов */
   @Get('devices/:id/stats')
-  stats(@Param('id') id: string) {
-    return this.statsSvc.stats(id);
+  stats(@Param('id') id: string, @Query('fresh') fresh?: string) {
+    return this.statsSvc.stats(id, fresh === '1' || fresh === 'true');
+  }
+
+  @Get('devices/:id/stats/history')
+  statsHistory(@Param('id') id: string) {
+    return this.statsSvc.history(id);
   }
 
   @Get('devices')

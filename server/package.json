@@ -13,6 +13,7 @@
     "@nestjs/platform-express": "^11.2.8",
     "@nestjs/serve-static": "^5.0.5",
     "bonjour-service": "^1.4.4",
+    "ioredis": "^5.11.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },

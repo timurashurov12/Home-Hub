@@ -50,7 +50,8 @@ export function MonitorTab({ id }: { id: string }) {
       const s = await api.stats(id);
       setStats(s);
       setError(null);
-      setHistory((h) => [...h, s.cpu.usage].slice(-60));
+      // кешированный снимок уже есть в истории — не дублируем точку
+      setHistory((h) => (s.cached ? h : [...h, s.cpu.usage].slice(-60)));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -60,8 +61,13 @@ export function MonitorTab({ id }: { id: string }) {
 
   useEffect(() => {
     setHistory([]);
+    // история хранится на сервере (Redis), поэтому график не обнуляется при перезагрузке страницы
+    api
+      .statsHistory(id)
+      .then((h) => setHistory((cur) => [...h.map((p) => p.cpu), ...cur].slice(-60)))
+      .catch(() => undefined);
     load();
-  }, [load]);
+  }, [id, load]);
 
   useEffect(() => {
     if (!live) return;

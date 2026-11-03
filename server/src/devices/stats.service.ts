@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AdbService } from '../adb/adb.service';
+import { CacheService } from '../cache/cache.service';
 
 export interface ProcStat {
   pid: number;
@@ -24,6 +25,20 @@ export interface DeviceStats {
   topCpu: ProcStat[];
   topMem: AppMem[];
 }
+
+export interface StatsPoint {
+  at: string;
+  cpu: number;
+  memAvailable: number;
+  memTotal: number;
+  temp: number | null;
+}
+
+/** Сколько живёт снимок: несколько вкладок/клиентов за это время получают один и тот же ответ. */
+const STATS_TTL_MS = Number(process.env.STATS_CACHE_MS ?? 4000);
+/** История для графиков: 720 точек ≈ 1 час при опросе раз в 5 с. */
+const HISTORY_MAX = 720;
+const HISTORY_TTL_MS = 24 * 3600 * 1000;
 
 const SEP = '__TVHUB_SEP__';
 // Split literal so it never appears verbatim in the `sh -c` command line that `top` lists.
@@ -114,9 +129,52 @@ export function parseMeminfo(out: string, limit = 10): AppMem[] {
 
 @Injectable()
 export class StatsService {
-  constructor(@Inject(AdbService) private readonly adb: AdbService) {}
+  private readonly inflight = new Map<string, Promise<DeviceStats>>();
 
-  async stats(id: string): Promise<DeviceStats> {
+  constructor(
+    @Inject(AdbService) private readonly adb: AdbService,
+    @Inject(CacheService) private readonly cache: CacheService,
+  ) {}
+
+  /** Снимок из кеша, если он свежий; иначе один общий запрос к приставке. */
+  async stats(id: string, fresh = false): Promise<DeviceStats & { cached: boolean }> {
+    if (!fresh) {
+      const hit = await this.cache.getJson<DeviceStats>(`stats:${id}`);
+      if (hit) return { ...hit, cached: true };
+    }
+    let p = this.inflight.get(id);
+    if (!p) {
+      p = this.collectAndStore(id).finally(() => this.inflight.delete(id));
+      this.inflight.set(id, p);
+    }
+    return { ...(await p), cached: false };
+  }
+
+  history(id: string) {
+    return this.cache.range<StatsPoint>(`stats:hist:${id}`);
+  }
+
+  invalidate(id: string) {
+    return this.cache.del(`stats:${id}`);
+  }
+
+  private async collectAndStore(id: string) {
+    const s = await this.collect(id);
+    const point: StatsPoint = {
+      at: s.at,
+      cpu: s.cpu.usage,
+      memAvailable: s.memory.available,
+      memTotal: s.memory.total,
+      temp: s.temps.length ? Math.max(...s.temps.map((t) => t.celsius)) : null,
+    };
+    await Promise.all([
+      this.cache.setJson(`stats:${id}`, s, STATS_TTL_MS),
+      this.cache.pushCapped(`stats:hist:${id}`, point, HISTORY_MAX, HISTORY_TTL_MS),
+    ]);
+    return s;
+  }
+
+  async collect(id: string): Promise<DeviceStats> {
     const cmds = [
       'head -1 /proc/stat; sleep 1; head -1 /proc/stat',
       'grep -c ^processor /proc/cpuinfo',
