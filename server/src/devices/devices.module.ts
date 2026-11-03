@@ -2,11 +2,13 @@ import { Inject, Module, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs
 import { DevicesController } from './devices.controller';
 import { DevicesService } from './devices.service';
 import { DevicesStore } from './devices.store';
+import { DnsController } from './dns.controller';
+import { DnsService } from './dns.service';
 import { OptimizeController } from './optimize.controller';
 import { OptimizeService } from './optimize.service';
 import { StatsService } from './stats.service';
 
-@Module({ controllers: [DevicesController, OptimizeController], providers: [DevicesService, DevicesStore, StatsService, OptimizeService], exports: [DevicesService] })
+@Module({ controllers: [DevicesController, OptimizeController, DnsController], providers: [DevicesService, DevicesStore, StatsService, OptimizeService, DnsService], exports: [DevicesService] })
 export class DevicesModule implements OnApplicationBootstrap, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   constructor(@Inject(DevicesService) private readonly devices: DevicesService) {}

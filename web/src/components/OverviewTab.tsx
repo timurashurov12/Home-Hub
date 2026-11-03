@@ -2,6 +2,7 @@ import { Moon, Power, RefreshCw, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, fmtBytes, fmtUptime, type DeviceInfo } from '../api/client';
 import { useAction } from '../toast';
+import { AdBlockCard } from './AdBlockCard';
 
 export function OverviewTab({ id }: { id: string }) {
   const run = useAction();
@@ -45,6 +46,7 @@ export function OverviewTab({ id }: { id: string }) {
           ))}
         </tbody>
       </table>
+      <AdBlockCard id={id} />
       <div className="row">
         <button onClick={load}><RefreshCw size={16} /> Обновить</button>
         <button onClick={() => run(() => api.key(id, info.screenOn ? 'sleep' : 'wakeup')).then(() => setTimeout(load, 800))}>

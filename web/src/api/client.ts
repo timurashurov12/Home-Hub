@@ -128,6 +128,26 @@ export interface Player {
   label: string;
 }
 
+export type DnsProvider = 'adguard' | 'adguard-family' | 'nextdns' | 'custom';
+export interface DnsRequest {
+  provider: DnsProvider;
+  nextdnsId?: string;
+  host?: string;
+}
+export interface DnsStatus {
+  supported: boolean;
+  mode: string;
+  host: string | null;
+  enabledByHub: boolean;
+  provider: DnsProvider | null;
+}
+export interface DnsAllResult {
+  id: string;
+  name: string;
+  ok: boolean;
+  error?: string;
+}
+
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   const init: RequestInit = { method };
   if (body instanceof FormData) init.body = body;
@@ -146,6 +166,11 @@ const d = (id: string) => `/api/devices/${encodeURIComponent(id)}`;
 const p = (pkg: string) => encodeURIComponent(pkg);
 
 export const api = {
+  dns: (id: string) => req<DnsStatus>('GET', `${d(id)}/dns`),
+  dnsOn: (id: string, r: DnsRequest) => req<DnsStatus>('POST', `${d(id)}/dns`, r),
+  dnsOff: (id: string) => req<DnsStatus>('POST', `${d(id)}/dns/off`),
+  dnsAllOn: (r: DnsRequest) => req<DnsAllResult[]>('POST', '/api/dns/all', r),
+  dnsAllOff: () => req<DnsAllResult[]>('POST', '/api/dns/all/off'),
   updates: (id: string, refresh = false) =>
     req<{ checkedAt: string; apps: AppUpdate[] }>('GET', `${d(id)}/updates${refresh ? '?refresh=1' : ''}`),
   updateApp: (id: string, pkg: string) => req<{ ok: boolean; from: string; to: string }>('POST', `${d(id)}/updates/${p(pkg)}`),

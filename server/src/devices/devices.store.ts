@@ -10,6 +10,16 @@ export interface SavedDevice {
   addedAt: string;
   /** применённый пресет оптимизации и всё, что нужно для отката */
   optimize?: OptimizeState;
+  /** блокировка рекламы через Private DNS и исходные настройки для отката */
+  dns?: DnsState;
+}
+
+export interface DnsState {
+  host: string;
+  provider: string;
+  /** private_dns_mode / private_dns_specifier до включения ('null' — не было значения) */
+  prevMode: string;
+  prevSpecifier: string;
 }
 
 export interface OptimizeState {
@@ -51,9 +61,13 @@ export class DevicesStore {
   }
 
   async clearOptimize(id: string) {
+    return this.clearField(id, 'optimize');
+  }
+
+  async clearField(id: string, field: 'optimize' | 'dns') {
     const d = await this.get(id);
     if (d) {
-      delete d.optimize;
+      delete d[field];
       await this.flush();
     }
   }
