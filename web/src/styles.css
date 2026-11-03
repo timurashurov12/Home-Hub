@@ -104,3 +104,10 @@ table { border-collapse: collapse; width: 100%; }
   .remote-layout { grid-template-columns: 1fr; }
   .kv td:first-child { width: 120px; }
 }
+
+.small { font-size: 12px; }
+.app-label { font-weight: 600; }
+.apps td.sel { width: 28px; }
+.tag.lvl-safe { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.tag.lvl-caution { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+.tag.lvl-critical { background: color-mix(in srgb, var(--err) 18%, transparent); color: var(--err); }

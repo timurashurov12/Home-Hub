@@ -7,6 +7,7 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { AdbService, assertPackage } from '../adb/adb.service';
 import { DevicesStore } from './devices.store';
+import { classify, type Level } from './catalog';
 import { KEYS } from './keys';
 
 export interface DeviceView {
@@ -24,6 +25,12 @@ export interface AppInfo {
   versionCode?: string;
   system: boolean;
   disabled: boolean;
+  /** удалено для пользователя (pm uninstall --user 0), можно восстановить */
+  removed?: boolean;
+  /** оценка из справочника: можно ли удалять */
+  level?: Level;
+  label?: string;
+  note?: string;
 }
 
 const HOST_RE = /^[a-zA-Z0-9.\-]+$/;
@@ -166,17 +173,37 @@ export class DevicesService {
           const m = l.match(/^package:(\S+)(?:\s+versionCode:(\d+))?/);
           return { pkg: m![1], ver: m![2] };
         });
-    const [third, disabled, all] = await Promise.all([
+    const [third, disabled, system, everything, installed] = await Promise.all([
       this.adb.shell(id, 'pm list packages -3 --show-versioncode'),
       this.adb.shell(id, 'pm list packages -d'),
       includeSystem ? this.adb.shell(id, 'pm list packages -s --show-versioncode') : Promise.resolve(''),
+      includeSystem ? this.adb.shell(id, 'pm list packages -u') : Promise.resolve(''),
+      includeSystem ? this.adb.shell(id, 'pm list packages') : Promise.resolve(''),
     ]);
     const disabledSet = new Set(parse(disabled).map((p) => p.pkg));
+    const installedSet = new Set(parse(installed).map((p) => p.pkg));
+    const mk = (pkg: string, ver: string | undefined, sys: boolean, removed = false): AppInfo => ({
+      package: pkg,
+      versionCode: ver,
+      system: sys,
+      disabled: disabledSet.has(pkg),
+      removed,
+      ...(sys ? classify(pkg) : undefined),
+    });
     const apps: AppInfo[] = [
-      ...parse(third).map((p) => ({ package: p.pkg, versionCode: p.ver, system: false, disabled: disabledSet.has(p.pkg) })),
-      ...parse(all).map((p) => ({ package: p.pkg, versionCode: p.ver, system: true, disabled: disabledSet.has(p.pkg) })),
+      ...parse(third).map((p) => mk(p.pkg, p.ver, false)),
+      ...parse(system).map((p) => mk(p.pkg, p.ver, true)),
+      // есть в -u (включая удалённые для пользователя), но нет среди установленных
+      ...parse(everything)
+        .filter((p) => !installedSet.has(p.pkg))
+        .map((p) => mk(p.pkg, undefined, true, true)),
     ];
-    return apps.sort((a, b) => Number(a.system) - Number(b.system) || a.package.localeCompare(b.package));
+    return apps.sort(
+      (a, b) =>
+        Number(!!a.removed) - Number(!!b.removed) ||
+        Number(a.system) - Number(b.system) ||
+        a.package.localeCompare(b.package),
+    );
   }
 
   async appDetails(id: string, pkg: string) {
@@ -203,17 +230,31 @@ export class DevicesService {
     throw new BadRequestException('У приложения нет активности для запуска');
   }
 
-  async appAction(id: string, pkg: string, action: 'stop' | 'clear' | 'uninstall' | 'disable' | 'enable') {
+  async appAction(
+    id: string,
+    pkg: string,
+    action: 'stop' | 'clear' | 'uninstall' | 'disable' | 'enable' | 'restore',
+    force = false,
+  ) {
     assertPackage(pkg);
+    const entry = classify(pkg);
+    if (entry?.level === 'critical' && ['uninstall', 'disable', 'clear'].includes(action) && !force) {
+      throw new BadRequestException(`«${entry.label}» критичен для системы. Нужно явное подтверждение.`);
+    }
     const cmd = {
       stop: `am force-stop ${pkg}`,
       clear: `pm clear ${pkg}`,
-      uninstall: `pm uninstall ${pkg} || pm uninstall --user 0 ${pkg}`,
+      // Обычное приложение удаляется полностью. Предустановленное (системное) удаляем для пользователя 0:
+      // без root и обратимо через install-existing. Простой `pm uninstall` для системного приложения
+      // снёс бы только его обновления, поэтому сначала проверяем, системное ли оно.
+      // -k сохраняет данные, чтобы после восстановления приложение работало как раньше.
+      uninstall: `if pm list packages -s | grep -qx 'package:${pkg}'; then pm uninstall -k --user 0 ${pkg}; else pm uninstall ${pkg}; fi`,
       disable: `pm disable-user --user 0 ${pkg}`,
       enable: `pm enable ${pkg}`,
+      restore: `cmd package install-existing ${pkg} 2>/dev/null || pm install-existing ${pkg}`,
     }[action];
     const out = (await this.adb.shell(id, cmd)).trim();
-    if (/Failure|Exception|Error/i.test(out)) throw new BadRequestException(out);
+    if (/Failure|Exception|Error|Unknown package|doesn't exist/i.test(out)) throw new BadRequestException(out);
     return { ok: true, output: out };
   }
 

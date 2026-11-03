@@ -70,9 +70,14 @@ export class DevicesController {
   }
 
   @Post('devices/:id/apps/:pkg/:action')
-  appAction(@Param('id') id: string, @Param('pkg') pkg: string, @Param('action') action: string) {
-    if (!['stop', 'clear', 'uninstall', 'disable', 'enable'].includes(action)) throw new BadRequestException();
-    return this.devices.appAction(id, pkg, action as any);
+  appAction(
+    @Param('id') id: string,
+    @Param('pkg') pkg: string,
+    @Param('action') action: string,
+    @Query('force') force?: string,
+  ) {
+    if (!['stop', 'clear', 'uninstall', 'disable', 'enable', 'restore'].includes(action)) throw new BadRequestException();
+    return this.devices.appAction(id, pkg, action as any, force === 'true');
   }
 
   /** Установка APK на одно или несколько ТВ: multipart с полем apk и deviceIds=a,b,c */

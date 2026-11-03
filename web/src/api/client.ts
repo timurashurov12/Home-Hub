@@ -36,7 +36,13 @@ export interface AppInfo {
   versionCode?: string;
   system: boolean;
   disabled: boolean;
+  removed?: boolean;
+  level?: 'safe' | 'caution' | 'critical';
+  label?: string;
+  note?: string;
 }
+
+export type AppAction = 'stop' | 'clear' | 'uninstall' | 'disable' | 'enable' | 'restore';
 
 export interface InstallResult {
   id: string;
@@ -72,8 +78,8 @@ export const api = {
   info: (id: string) => req<DeviceInfo>('GET', `${d(id)}/info`),
   apps: (id: string, system: boolean) => req<AppInfo[]>('GET', `${d(id)}/apps?system=${system}`),
   launch: (id: string, pkg: string) => req('POST', `${d(id)}/apps/${p(pkg)}/launch`),
-  appAction: (id: string, pkg: string, action: 'stop' | 'clear' | 'uninstall' | 'disable' | 'enable') =>
-    req('POST', `${d(id)}/apps/${p(pkg)}/${action}`),
+  appAction: (id: string, pkg: string, action: AppAction, force = false) =>
+    req('POST', `${d(id)}/apps/${p(pkg)}/${action}${force ? '?force=true' : ''}`),
   installFile: (ids: string[], file: File) => {
     const fd = new FormData();
     fd.append('deviceIds', ids.join(','));
