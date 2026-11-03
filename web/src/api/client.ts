@@ -23,6 +23,7 @@ export interface ScanState {
   startedAt: string | null;
   finishedAt: string | null;
   results: FoundHost[];
+  subnets: string[];
 }
 
 export interface DeviceInfo {
@@ -85,7 +86,7 @@ export const api = {
   remove: (id: string) => req('DELETE', d(id)),
   connect: (id: string) => req('POST', `${d(id)}/connect`),
   lastScan: () => req<ScanState>('GET', '/api/discovery/last'),
-  scan: (subnet?: string) => req<FoundHost[]>('POST', '/api/discovery/scan', subnet ? { subnet } : {}),
+  scan: (subnet?: string) => req<{ results: FoundHost[]; subnets: string[] }>('POST', '/api/discovery/scan', subnet ? { subnet } : {}),
   info: (id: string) => req<DeviceInfo>('GET', `${d(id)}/info`),
   apps: (id: string, system: boolean) => req<AppInfo[]>('GET', `${d(id)}/apps?system=${system}`),
   launch: (id: string, pkg: string) => req('POST', `${d(id)}/apps/${p(pkg)}/launch`),

@@ -24,10 +24,16 @@ export function ScanDialog({ known, initial, onClose, onAdded }: {
   const [manual, setManual] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [auto, setAuto] = useState(autoScanPref.get());
+  const [subnets, setSubnets] = useState<string[]>([]);
+  useEffect(() => {
+    api.lastScan().then((s) => setSubnets(s.subnets)).catch(() => undefined);
+  }, []);
 
   const scan = async () => {
     setScanning(true);
-    setFound((await run(() => api.scan(subnet || undefined))) ?? []);
+    const r = await run(() => api.scan(subnet || undefined));
+    setFound(r?.results ?? []);
+    if (r) setSubnets(r.subnets);
     setScanning(false);
   };
 
@@ -70,9 +76,30 @@ export function ScanDialog({ known, initial, onClose, onAdded }: {
         </button>
       </div>
 
+      {subnets.length > 0 && (
+        <div className="muted small">
+          Сканируются подсети: {subnets.join(', ')}
+          {subnets.some((s) => s.startsWith('172.')) && (
+            <div className="warn-text">
+              <TriangleAlert size={12} /> Похоже, это внутренняя сеть Docker. Укажи домашнюю подсеть выше или в SCAN_SUBNETS в .env
+            </div>
+          )}
+        </div>
+      )}
+      {subnets.length === 0 && found?.length === 0 && (
+        <div className="warn-text small">
+          <TriangleAlert size={12} /> Не найдено ни одной подсети для сканирования. Укажи её вручную, напр. 192.168.1.0
+        </div>
+      )}
+
       <div className="list">
         {scanning && <div className="empty">Сканирую сеть, это займёт несколько секунд…</div>}
-        {!scanning && found?.length === 0 && <div className="empty">Ничего не найдено</div>}
+        {!scanning && found?.length === 0 && (
+          <div className="empty">
+            Ничего не найдено. Проверь, что ТВ включён и в той же Wi‑Fi сети. На macOS разреши Docker доступ к локальной
+            сети (Настройки → Конфиденциальность → Локальная сеть).
+          </div>
+        )}
         {!scanning &&
           found?.map((h) => {
             const K = KIND[h.kind];

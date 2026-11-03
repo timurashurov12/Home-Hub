@@ -39,7 +39,7 @@ export function App() {
     setStartupScan(true);
     (async () => {
       try {
-        const [results, saved] = await Promise.all([api.scan(), api.devices()]);
+        const [{ results }, saved] = await Promise.all([api.scan(), api.devices()]);
         if (cancelled) return;
         const savedIds = new Set(saved.filter((d) => d.saved).map((d) => d.id));
         const news = results.filter((h) => !savedIds.has(`${h.host}:${h.adbPort ?? 5555}`));

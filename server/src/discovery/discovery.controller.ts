@@ -17,7 +17,8 @@ export class DiscoveryController {
   }
 
   @Post('scan')
-  scan(@Body() body: { subnet?: string }) {
-    return this.discovery.discover(body ?? {});
+  async scan(@Body() body: { subnet?: string }) {
+    const results = await this.discovery.discover(body ?? {});
+    return { results, subnets: this.discovery.state.subnets };
   }
 }

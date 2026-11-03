@@ -26,6 +26,8 @@ export interface ScanState {
   startedAt: string | null;
   finishedAt: string | null;
   results: FoundHost[];
+  /** какие /24 подсети сканировались в последний раз */
+  subnets: string[];
 }
 
 const ADB_PORT = 5555;
@@ -93,7 +95,7 @@ export class DiscoveryService implements OnApplicationBootstrap, OnModuleDestroy
   private readonly log = new Logger(DiscoveryService.name);
   private bonjour?: Bonjour;
   private current?: Promise<FoundHost[]>;
-  state: ScanState = { running: false, startedAt: null, finishedAt: null, results: [] };
+  state: ScanState = { running: false, startedAt: null, finishedAt: null, results: [], subnets: [] };
 
   onApplicationBootstrap() {
     // Автоскан при запуске сервера, чтобы интерфейс сразу показал найденные устройства
@@ -101,8 +103,9 @@ export class DiscoveryService implements OnApplicationBootstrap, OnModuleDestroy
   }
 
   /** Сканирует /24 подсети: ADB, сервис пульта Android TV и Google Cast. */
-  async scanSubnets(subnet?: string, timeoutMs = 400): Promise<FoundHost[]> {
+  async scanSubnets(subnet?: string, timeoutMs = Number(process.env.SCAN_TIMEOUT_MS) || 800): Promise<FoundHost[]> {
     const prefixes = subnet ? [toPrefix(subnet)] : defaultPrefixes();
+    this.state.subnets = prefixes.map((p) => `${p}.0/24`);
     const hosts: string[] = [];
     for (const p of prefixes) for (let i = 1; i < 255; i++) hosts.push(`${p}.${i}`);
 
