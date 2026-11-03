@@ -164,3 +164,15 @@ button { justify-content: center; }
     transform: rotate(360deg);
   }
 }
+
+/* Файлы и видео */
+.files { display: flex; flex-direction: column; gap: 12px; }
+.files h4 { margin: 0; display: flex; align-items: center; gap: 6px; }
+.files select, .row select { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; }
+.dropzone-card.drag { border-color: var(--accent); border-style: dashed; }
+button.link { border: none; background: none; padding: 2px 4px; color: inherit; display: inline-flex; align-items: center; gap: 6px; }
+button.link:hover:not(:disabled) { background: var(--hover); }
+.crumbs span { display: inline-flex; align-items: center; }
+button.active { border-color: var(--accent); }
+a.button { display: inline-flex; align-items: center; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 3px 8px; margin-left: 4px; color: inherit; vertical-align: middle; }
+a.button:hover { background: var(--hover); }

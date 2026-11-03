@@ -3,8 +3,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, type AppAction, type AppInfo, type Device } from '../api/client';
 import { useAction, useToast } from '../toast';
 import { InstallDialog } from './InstallDialog';
+import { UpdatesPanel } from './UpdatesPanel';
 
-type View = 'user' | 'system' | 'removed';
+type View = 'user' | 'system' | 'removed' | 'updates';
 
 const LEVEL = {
   safe: { text: 'можно удалить', cls: 'lvl-safe' },
@@ -37,7 +38,7 @@ export function AppsTab({ device }: { device: Device }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const needSystem = view !== 'user';
+  const needSystem = view === 'system' || view === 'removed';
   const load = async () => setApps((await run(() => api.apps(id, needSystem))) ?? []);
   useEffect(() => {
     setApps(null);
@@ -113,7 +114,7 @@ export function AppsTab({ device }: { device: Device }) {
     }),
     [apps, needSystem],
   );
-  const bulkMode = view !== 'user';
+  const bulkMode = view === 'system' || view === 'removed';
 
   return (
     <div>
@@ -121,7 +122,12 @@ export function AppsTab({ device }: { device: Device }) {
         <button className={view === 'user' ? 'active' : ''} onClick={() => setView('user')}>Мои {counts.user != null && `(${counts.user})`}</button>
         <button className={view === 'system' ? 'active' : ''} onClick={() => setView('system')}>Предустановленные {counts.system != null && `(${counts.system})`}</button>
         <button className={view === 'removed' ? 'active' : ''} onClick={() => setView('removed')}>Удалённые {counts.removed != null && `(${counts.removed})`}</button>
+        <button className={view === 'updates' ? 'active' : ''} onClick={() => setView('updates')}>Обновления</button>
       </div>
+
+      {view === 'updates' && <UpdatesPanel id={id} />}
+      {view !== 'updates' && (
+      <>
 
       {view === 'system' && (
         <p className="hint">
@@ -201,6 +207,8 @@ export function AppsTab({ device }: { device: Device }) {
             )}
           </tbody>
         </table>
+      )}
+      </>
       )}
 
       {installing && <InstallDialog devices={[device]} preselect={id} onClose={() => setInstalling(false)} onDone={load} />}

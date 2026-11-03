@@ -96,6 +96,16 @@ export class AdbService implements OnModuleInit {
     return this.run(['-s', serial, 'install', '-r', '-d', '-g', apkPath], 10 * 60_000);
   }
 
+  /** Копирует локальный файл на устройство. Большие видео могут идти долго — таймаут 2 часа. */
+  push(serial: string, local: string, remote: string) {
+    return this.run(['-s', serial, 'push', local, remote], 2 * 3600_000);
+  }
+
+  /** Копирует файл или папку с устройства в локальный путь. */
+  pull(serial: string, remote: string, local: string) {
+    return this.run(['-s', serial, 'pull', remote, local], 2 * 3600_000);
+  }
+
   screencap(serial: string) {
     return this.runBuffer(['-s', serial, 'exec-out', 'screencap', '-p'], 20_000);
   }
@@ -103,4 +113,9 @@ export class AdbService implements OnModuleInit {
   reboot(serial: string) {
     return this.run(['-s', serial, 'reboot'], 10_000);
   }
+}
+
+/** Экранирование аргумента для `adb shell` (одинарные кавычки). */
+export function shQuote(s: string) {
+  return `'${s.replace(/'/g, `'\\''`)}'`;
 }

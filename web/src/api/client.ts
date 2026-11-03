@@ -100,6 +100,34 @@ export interface InstallResult {
   output: string;
 }
 
+export type UpdateSource =
+  | { type: 'github'; repo: string; assetPattern?: string; prerelease?: boolean; label?: string }
+  | { type: 'fdroid'; label?: string };
+
+export interface AppUpdate {
+  package: string;
+  label?: string;
+  installed: { versionName: string | null; versionCode: number | null };
+  source: (UpdateSource & { origin: 'custom' | 'builtin' | 'auto' }) | null;
+  latest: { version: string; url: string; asset: string; size?: number; publishedAt?: string; page: string } | null;
+  hasUpdate: boolean;
+  error?: string;
+}
+
+export interface RemoteEntry {
+  name: string;
+  path: string;
+  dir: boolean;
+  size: number;
+  mtime: string;
+}
+
+export interface Player {
+  package: string;
+  activity: string;
+  label: string;
+}
+
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   const init: RequestInit = { method };
   if (body instanceof FormData) init.body = body;
@@ -118,6 +146,25 @@ const d = (id: string) => `/api/devices/${encodeURIComponent(id)}`;
 const p = (pkg: string) => encodeURIComponent(pkg);
 
 export const api = {
+  updates: (id: string, refresh = false) =>
+    req<{ checkedAt: string; apps: AppUpdate[] }>('GET', `${d(id)}/updates${refresh ? '?refresh=1' : ''}`),
+  updateApp: (id: string, pkg: string) => req<{ ok: boolean; from: string; to: string }>('POST', `${d(id)}/updates/${p(pkg)}`),
+  updateAll: (id: string) => req<{ ok: boolean; package: string; to?: string; error?: string }[]>('POST', `${d(id)}/updates`),
+  setUpdateSource: (pkg: string, src: UpdateSource) => req('PUT', `/api/update-sources/${p(pkg)}`, src),
+  removeUpdateSource: (pkg: string) => req('DELETE', `/api/update-sources/${p(pkg)}`),
+  files: (id: string, path: string) => req<{ path: string; entries: RemoteEntry[] }>('GET', `${d(id)}/files?path=${encodeURIComponent(path)}`),
+  volumes: (id: string) => req<{ name: string; path: string }[]>('GET', `${d(id)}/volumes`),
+  uploadFile: (id: string, dir: string, file: File) => {
+    const fd = new FormData();
+    fd.append('path', dir);
+    fd.append('file', file);
+    return req<{ ok: boolean; path: string }>('POST', `${d(id)}/files`, fd);
+  },
+  downloadUrl: (id: string, path: string) => `${d(id)}/files/download?path=${encodeURIComponent(path)}`,
+  mkdir: (id: string, path: string, name: string) => req('POST', `${d(id)}/files/mkdir`, { path, name }),
+  removeFile: (id: string, path: string) => req('DELETE', `${d(id)}/files?path=${encodeURIComponent(path)}`),
+  players: (id: string) => req<Player[]>('GET', `${d(id)}/players`),
+  play: (id: string, url: string, player?: string) => req('POST', `${d(id)}/play`, { url, player }),
   health: () => req<{ ok: boolean; adb: boolean }>('GET', '/api/health'),
   devices: () => req<Device[]>('GET', '/api/devices'),
   addDevice: (host: string, port: number, name?: string) =>

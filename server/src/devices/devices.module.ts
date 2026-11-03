@@ -6,7 +6,7 @@ import { OptimizeController } from './optimize.controller';
 import { OptimizeService } from './optimize.service';
 import { StatsService } from './stats.service';
 
-@Module({ controllers: [DevicesController, OptimizeController], providers: [DevicesService, DevicesStore, StatsService, OptimizeService] })
+@Module({ controllers: [DevicesController, OptimizeController], providers: [DevicesService, DevicesStore, StatsService, OptimizeService], exports: [DevicesService] })
 export class DevicesModule implements OnApplicationBootstrap, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   constructor(@Inject(DevicesService) private readonly devices: DevicesService) {}
