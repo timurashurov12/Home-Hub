@@ -26,6 +26,8 @@ export interface DeviceStats {
 }
 
 const SEP = '__TVHUB_SEP__';
+// Split literal so it never appears verbatim in the `sh -c` command line that `top` lists.
+const SEP_ECHO = `'__TVHUB_''SEP__'`;
 
 function cpuTicks(line: string) {
   const n = line.trim().split(/\s+/).slice(1).map(Number);
@@ -69,7 +71,7 @@ export function parseTop(out: string, limit = 10): ProcStat[] {
     const p = l.split(/\s+/);
     const name = p.slice(iName).join(' ');
     // пропускаем сам top и потоки ядра вида [kworker/0:1]
-    if (!name || name.startsWith('top ') || name === 'top' || name.startsWith('[')) continue;
+    if (!name || name.startsWith('top ') || name === 'top' || name === 'sh' || name.startsWith('sh -c') || name.startsWith('[')) continue;
     res.push({
       pid: Number(p[iPid]),
       name: name.split(' ')[0],
@@ -126,7 +128,7 @@ export class StatsService {
       'dumpsys meminfo',
       'dumpsys thermalservice',
     ];
-    const out = await this.adb.shell(id, cmds.join(`; echo ${SEP}; `), 30_000);
+    const out = await this.adb.shell(id, cmds.join(`; echo ${SEP_ECHO}; `), 30_000);
     const parts = out.split(SEP).map((s) => s.trim());
     // недостающие блоки (команда не поддерживается прошивкой) считаем пустыми
     const p = Array.from({ length: cmds.length }, (_, i) => parts[i] ?? '');
