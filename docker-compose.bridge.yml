@@ -1,5 +1,5 @@
 # Вариант для Docker Desktop (macOS / Windows), где host-сеть может быть недоступна.
-# mDNS здесь не работает, поэтому подсеть для сканирования нужно указать явно.
+# mDNS здесь не работает, поэтому подсеть для сканирования нужно указать в .env (SCAN_SUBNETS).
 #   docker compose -f docker-compose.bridge.yml up -d --build
 services:
   tv-hub:
@@ -8,9 +8,9 @@ services:
     container_name: tv-hub
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${TVHUB_PORT:-8765}:${TVHUB_PORT:-8765}"
     environment:
-      PORT: 3000
+      PORT: ${TVHUB_PORT:-8765}
       SCAN_SUBNETS: ${SCAN_SUBNETS:-192.168.1.0}
     volumes:
       - tv-hub-data:/data

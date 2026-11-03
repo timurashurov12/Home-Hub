@@ -10,8 +10,14 @@ export class DiscoveryController {
     return { interfaces: localSubnets(), configured: process.env.SCAN_SUBNETS ?? null };
   }
 
+  /** Результат последнего скана (в т.ч. автоскана при запуске). */
+  @Get('last')
+  last() {
+    return this.discovery.state;
+  }
+
   @Post('scan')
-  scan(@Body() body: { port?: number; subnet?: string }) {
+  scan(@Body() body: { subnet?: string }) {
     return this.discovery.discover(body ?? {});
   }
 }

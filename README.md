@@ -1,12 +1,13 @@
 # TV Hub
 
-Локальная панель для управления телевизорами на **Xiaomi Mi TV Stick** (и любыми Android TV) по домашней сети через ADB.
+Локальная панель для управления любыми Android-приставками и телевизорами в домашней сети через ADB: Android TV, Google TV, Fire TV, Xiaomi Mi Box / Mi TV Stick, Nvidia Shield, Chromecast with Google TV и т.д.
 
 **Стек:** NestJS 11 (сервер, вызывает `adb`) + React 19 / Vite (веб-интерфейс). Панель открывается в браузере, в том числе с телефона в той же Wi‑Fi сети.
 
 ## Что умеет
 
-- **Поиск ТВ в сети:** сканирование /24 подсетей на открытый порт ADB 5555 + mDNS; ручное добавление по `IP:порт`
+- **Сканер сети при запуске:** ищет устройства по ADB (5555), сервису пульта Android TV (6466) и Google Cast (8009/mDNS), показывает имя и модель; новые можно добавить по одному или все сразу. Устройства с закрытым ADB тоже видны, с подсказкой включить отладку. Отключается в окне сканера или `AUTO_SCAN=false`
+- Ручное добавление по `IP:порт`
 - Сохранённый список ТВ с названиями, статусом (в сети / не в сети / ждёт подтверждения) и **автопереподключением** каждые 30 с
 - **Информация:** модель, Android, сборка, разрешение, IP, аптайм, RAM и хранилище
 - **Установка APK:** загрузка файла (drag&drop) или по ссылке, **сразу на несколько ТВ**
@@ -26,7 +27,9 @@
    - Linux: `sudo apt install adb`
    Если `adb` не в PATH, укажи путь: `ADB_PATH=/path/to/adb`.
 
-## Настройка Mi TV Stick (один раз на каждом стике)
+## Настройка приставки (один раз на каждой)
+
+Ниже шаги для Android TV / Google TV (Mi TV Stick, Mi Box и т.п.). На Fire TV: Настройки → Моё устройство Fire TV → Параметры разработчика → Отладка ADB.
 
 1. **Настройки → Настройки устройства → Об устройстве** → 7 раз нажми на **«Сборка»**, появится «Вы стали разработчиком».
 2. **Настройки устройства → Для разработчиков** → включи **«Отладка по USB»** (на стиках она работает и по сети).
@@ -43,14 +46,16 @@
 **Linux** (host-сеть, работает автопоиск и mDNS):
 
 ```bash
+cp .env.example .env   # при желании поменяй TVHUB_PORT
 docker compose up -d --build
-# панель: http://localhost:3000 или http://<IP компьютера>:3000
+# панель: http://localhost:8765 или http://<IP компьютера>:8765
 ```
 
 **macOS / Windows (Docker Desktop):** контейнер в bridge-сети не видит домашнюю подсеть сам, поэтому её нужно указать:
 
 ```bash
-SCAN_SUBNETS=192.168.1.0 docker compose -f docker-compose.bridge.yml up -d --build
+cp .env.example .env   # впиши SCAN_SUBNETS=192.168.1.0 (твоя подсеть)
+docker compose -f docker-compose.bridge.yml up -d --build
 ```
 
 > В Docker Desktop 4.34+ можно включить host-сеть (Settings → Resources → Network → Enable host networking) и использовать обычный `docker-compose.yml`.
@@ -63,15 +68,15 @@ SCAN_SUBNETS=192.168.1.0 docker compose -f docker-compose.bridge.yml up -d --bui
 ```bash
 npm install
 
-# режим разработки: сервер на :3000, интерфейс на http://localhost:5173
+# режим разработки: сервер на :8765, интерфейс на http://localhost:5173
 npm run dev
 
-# продакшн: собрать и запустить всё на одном порту http://localhost:3000
+# продакшн: собрать и запустить всё на одном порту http://localhost:8765
 npm run build
 npm start
 ```
 
-Переменные окружения сервера: `PORT` (3000), `HOST` (0.0.0.0), `ADB_PATH`, `DATA_DIR` (папка для `devices.json`, по умолчанию `./data`), `SCAN_SUBNETS` (подсети для поиска через запятую, напр. `192.168.1.0,192.168.0.0`; по умолчанию подсети сетевых интерфейсов).
+Переменные окружения сервера: `PORT` (8765; в Docker задаётся через `TVHUB_PORT` в `.env`), `HOST` (0.0.0.0), `ADB_PATH`, `DATA_DIR` (папка для `devices.json`, по умолчанию `./data`), `SCAN_SUBNETS` (подсети для поиска через запятую, напр. `192.168.1.0,192.168.0.0`; по умолчанию подсети сетевых интерфейсов), `AUTO_SCAN` (`false` отключает скан при запуске сервера).
 
 ## API
 
@@ -81,7 +86,8 @@ npm start
 | POST | `/api/devices` `{host, port?, name?}` | подключить и сохранить |
 | PATCH / DELETE | `/api/devices/:id` | переименовать / удалить |
 | POST | `/api/devices/:id/connect` | переподключить |
-| POST | `/api/discovery/scan` `{subnet?, port?}` | поиск в сети |
+| POST | `/api/discovery/scan` `{subnet?}` | поиск в сети |
+| GET | `/api/discovery/last` | результат последнего скана (в т.ч. автоскана) |
 | GET | `/api/devices/:id/info` | информация об устройстве |
 | GET | `/api/devices/:id/apps?system=true` | приложения |
 | POST | `/api/devices/:id/apps/:pkg/(launch\|stop\|clear\|disable\|enable\|uninstall)` | действия с приложением |

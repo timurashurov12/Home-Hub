@@ -1,32 +1,54 @@
+import { Cast, CircleCheck, Plus, Radar, Tv, TriangleAlert, Wifi } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { api, type Device, type FoundHost } from '../api/client';
+import { api, autoScanPref, type Device, type FoundHost } from '../api/client';
 import { useAction } from '../toast';
 import { Modal } from './Modal';
 
-export function ScanDialog({ known, onClose, onAdded }: { known: Device[]; onClose: () => void; onAdded: () => void }) {
+const KIND = {
+  'android-tv': { icon: Tv, text: 'Android TV' },
+  cast: { icon: Cast, text: 'Google Cast' },
+  adb: { icon: Wifi, text: 'Android (ADB)' },
+} as const;
+
+export function ScanDialog({ known, initial, onClose, onAdded }: {
+  known: Device[];
+  /** готовые результаты (например, автоскана при запуске) — тогда повторно не сканируем */
+  initial?: FoundHost[];
+  onClose: () => void;
+  onAdded: () => void;
+}) {
   const run = useAction();
-  const [found, setFound] = useState<FoundHost[] | null>(null);
+  const [found, setFound] = useState<FoundHost[] | null>(initial ?? null);
   const [scanning, setScanning] = useState(false);
   const [subnet, setSubnet] = useState('');
   const [manual, setManual] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
+  const [auto, setAuto] = useState(autoScanPref.get());
 
   const scan = async () => {
     setScanning(true);
-    setFound(await run(() => api.scan(subnet || undefined)) ?? []);
+    setFound((await run(() => api.scan(subnet || undefined))) ?? []);
     setScanning(false);
   };
 
   useEffect(() => {
-    scan();
+    if (!initial) scan();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const isSaved = (host: string, port = 5555) => known.some((k) => k.id === `${host}:${port}` && k.saved);
+
   const add = async (host: string, port: number, name?: string) => {
-    setBusy(`${host}:${port}`);
-    const ok = await run(() => api.addDevice(host, port, name), `Подключено: ${host}`);
+    setBusy(host);
+    const ok = await run(() => api.addDevice(host, port, name), `Подключено: ${name ?? host}`);
     setBusy(null);
     if (ok) onAdded();
+    return !!ok;
+  };
+
+  const addable = (found ?? []).filter((h) => h.adbPort && !isSaved(h.host, h.adbPort));
+  const addAll = async () => {
+    for (const h of addable) await add(h.host, h.adbPort!, h.name);
   };
 
   const addManual = () => {
@@ -35,15 +57,17 @@ export function ScanDialog({ known, onClose, onAdded }: { known: Device[]; onClo
   };
 
   return (
-    <Modal title="Поиск ТВ в сети" onClose={onClose}>
+    <Modal title="Устройства в сети" onClose={onClose}>
       <p className="hint">
-        Ищем устройства с открытым портом ADB (5555) в локальной сети. Если стик не находится, проверь, что на нём
-        включена <b>отладка по сети</b> (см. README). При первом подключении на экране ТВ появится запрос — нажми
-        «Разрешить» и поставь галочку «Всегда».
+        Ищем Android TV, Google TV, Fire TV и другие Android-приставки: по открытому ADB (порт 5555), сервису пульта
+        Android TV и Google Cast. Управлять можно теми, где включена <b>отладка по сети</b> (см. README). При первом
+        подключении на экране ТВ нажми «Разрешить» и отметь «Всегда».
       </p>
       <div className="row">
         <input placeholder="Подсеть, напр. 192.168.1.0 (пусто — все)" value={subnet} onChange={(e) => setSubnet(e.target.value)} />
-        <button onClick={scan} disabled={scanning}>{scanning ? 'Сканирую…' : 'Сканировать'}</button>
+        <button onClick={scan} disabled={scanning}>
+          <Radar size={16} /> {scanning ? 'Сканирую…' : 'Сканировать'}
+        </button>
       </div>
 
       <div className="list">
@@ -51,26 +75,61 @@ export function ScanDialog({ known, onClose, onAdded }: { known: Device[]; onClo
         {!scanning && found?.length === 0 && <div className="empty">Ничего не найдено</div>}
         {!scanning &&
           found?.map((h) => {
-            const id = `${h.host}:${h.port}`;
-            const saved = known.some((k) => k.id === id && k.saved);
+            const K = KIND[h.kind];
+            const saved = h.adbPort ? isSaved(h.host, h.adbPort) : false;
+            const title = h.name ?? h.model ?? h.host;
+            const sub = [h.manufacturer, h.model && h.model !== title ? h.model : null, h.host].filter(Boolean).join(' · ');
             return (
-              <div key={id} className="list-row">
-                <div>
-                  <b>{h.name ?? h.host}</b> <small className="muted">{id} · {h.source === 'mdns' ? 'mDNS' : 'скан'}</small>
+              <div key={h.host} className="list-row">
+                <div className="found">
+                  <K.icon size={20} className="muted" />
+                  <div>
+                    <b>{title}</b>
+                    <div className="muted small">
+                      {sub} · {K.text}
+                    </div>
+                    {!h.adbPort && (
+                      <div className="warn-text small">
+                        <TriangleAlert size={12} /> ADB закрыт: включи «Отладку по сети» на устройстве
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <button disabled={saved || busy === id} onClick={() => add(h.host, h.port, h.name)}>
-                  {saved ? 'Добавлен' : busy === id ? 'Подключаю…' : 'Подключить'}
-                </button>
+                {saved ? (
+                  <span className="muted small inline">
+                    <CircleCheck size={14} /> добавлено
+                  </span>
+                ) : h.adbPort ? (
+                  <button disabled={busy === h.host} onClick={() => add(h.host, h.adbPort!, h.name)}>
+                    <Plus size={16} /> {busy === h.host ? 'Подключаю…' : 'Добавить'}
+                  </button>
+                ) : (
+                  <button disabled={busy === h.host} title="Попробовать порт 5555" onClick={() => add(h.host, 5555, h.name)}>
+                    Попробовать
+                  </button>
+                )}
               </div>
             );
           })}
       </div>
+      {addable.length > 1 && !scanning && (
+        <div className="row">
+          <div className="spacer" />
+          <button className="primary" disabled={!!busy} onClick={addAll}>
+            <Plus size={16} /> Добавить все ({addable.length})
+          </button>
+        </div>
+      )}
 
       <h4>Добавить вручную</h4>
       <div className="row">
         <input placeholder="192.168.1.50:5555" value={manual} onChange={(e) => setManual(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addManual()} />
         <button onClick={addManual} disabled={!manual || !!busy}>Подключить</button>
       </div>
+
+      <label className="check">
+        <input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); autoScanPref.set(e.target.checked); }} /> Искать новые устройства при запуске
+      </label>
     </Modal>
   );
 }

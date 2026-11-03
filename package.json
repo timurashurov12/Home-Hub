@@ -2,7 +2,7 @@
   "name": "tv-hub",
   "private": true,
   "version": "0.1.0",
-  "description": "Локальная панель управления ТВ на Xiaomi Mi TV Stick (Android TV) через ADB по сети",
+  "description": "Локальная панель управления Android TV приставками и ТВ в домашней сети через ADB",
   "workspaces": ["server", "web"],
   "scripts": {
     "dev": "concurrently -n server,web -c blue,green \"npm run dev -w server\" \"npm run dev -w web\"",

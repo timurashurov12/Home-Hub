@@ -10,9 +10,19 @@ export interface Device {
 
 export interface FoundHost {
   host: string;
-  port: number;
-  source: 'scan' | 'mdns';
+  adbPort: number | null;
   name?: string;
+  model?: string;
+  manufacturer?: string;
+  kind: 'android-tv' | 'cast' | 'adb';
+  sources: string[];
+}
+
+export interface ScanState {
+  running: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  results: FoundHost[];
 }
 
 export interface DeviceInfo {
@@ -74,6 +84,7 @@ export const api = {
   rename: (id: string, name: string) => req('PATCH', d(id), { name }),
   remove: (id: string) => req('DELETE', d(id)),
   connect: (id: string) => req('POST', `${d(id)}/connect`),
+  lastScan: () => req<ScanState>('GET', '/api/discovery/last'),
   scan: (subnet?: string) => req<FoundHost[]>('POST', '/api/discovery/scan', subnet ? { subnet } : {}),
   info: (id: string) => req<DeviceInfo>('GET', `${d(id)}/info`),
   apps: (id: string, system: boolean) => req<AppInfo[]>('GET', `${d(id)}/apps?system=${system}`),
@@ -107,3 +118,21 @@ export function fmtUptime(s: number) {
   const m = Math.floor((s % 3600) / 60);
   return [dd && `${dd} д`, h && `${h} ч`, `${m} мин`].filter(Boolean).join(' ');
 }
+
+/** Настройка «искать устройства при запуске» (хранится в браузере). */
+export const autoScanPref = {
+  get: () => {
+    try {
+      return localStorage.getItem('tvhub.autoScan') !== 'off';
+    } catch {
+      return true;
+    }
+  },
+  set: (on: boolean) => {
+    try {
+      localStorage.setItem('tvhub.autoScan', on ? 'on' : 'off');
+    } catch {
+      /* ignore */
+    }
+  },
+};

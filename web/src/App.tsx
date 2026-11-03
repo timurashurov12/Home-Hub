@@ -1,6 +1,6 @@
-import { Download, Search, Tv } from 'lucide-react';
+import { Download, Radar, Search, Tv, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { api, type Device } from './api/client';
+import { api, autoScanPref, type Device, type FoundHost } from './api/client';
 import { DeviceDetail } from './components/DeviceDetail';
 import { InstallDialog } from './components/InstallDialog';
 import { ScanDialog } from './components/ScanDialog';
@@ -11,6 +11,9 @@ export function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [adbOk, setAdbOk] = useState(true);
   const [dialog, setDialog] = useState<'scan' | 'install' | null>(null);
+  /** новые устройства из автоскана при запуске */
+  const [fresh, setFresh] = useState<FoundHost[] | null>(null);
+  const [startupScan, setStartupScan] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -28,6 +31,35 @@ export function App() {
     const t = setInterval(refresh, 5000);
     return () => clearInterval(t);
   }, [refresh]);
+
+  // Автоскан сети при открытии программы: показываем устройства, которых ещё нет в списке
+  useEffect(() => {
+    if (!autoScanPref.get()) return;
+    let cancelled = false;
+    setStartupScan(true);
+    (async () => {
+      try {
+        const [results, saved] = await Promise.all([api.scan(), api.devices()]);
+        if (cancelled) return;
+        const savedIds = new Set(saved.filter((d) => d.saved).map((d) => d.id));
+        const news = results.filter((h) => !savedIds.has(`${h.host}:${h.adbPort ?? 5555}`));
+        if (news.length) {
+          setFresh(results);
+          // если список пуст — сразу открываем сканер
+          if (!saved.some((d) => d.saved)) setDialog('scan');
+        }
+      } catch {
+        /* сервер недоступен */
+      } finally {
+        if (!cancelled) setStartupScan(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const freshCount = fresh?.filter((h) => !devices.some((d) => d.saved && d.id === `${h.host}:${h.adbPort ?? 5555}`)).length ?? 0;
 
   const current = devices.find((d) => d.id === selected) ?? null;
 
@@ -49,10 +81,24 @@ export function App() {
         </div>
       )}
 
+      {startupScan && (
+        <div className="banner info">
+          <Radar size={16} /> Ищу устройства в сети…
+        </div>
+      )}
+      {!startupScan && freshCount > 0 && dialog !== 'scan' && (
+        <div className="banner info">
+          <Radar size={16} /> Найдено новых устройств в сети: {freshCount}
+          <button onClick={() => setDialog('scan')}>Показать</button>
+          <div className="spacer" />
+          <button className="ghost" title="Скрыть" onClick={() => setFresh(null)}><X size={16} /></button>
+        </div>
+      )}
+
       <aside className="sidebar">
         {devices.length === 0 && (
           <div className="empty">
-            Пока нет ТВ. Нажми «Найти ТВ», чтобы просканировать сеть.
+            Пока нет устройств. Нажми «Найти ТВ», чтобы просканировать сеть.
           </div>
         )}
         {devices.map((d) => (
@@ -74,7 +120,7 @@ export function App() {
         )}
       </main>
 
-      {dialog === 'scan' && <ScanDialog known={devices} onClose={() => setDialog(null)} onAdded={refresh} />}
+      {dialog === 'scan' && <ScanDialog known={devices} initial={fresh ?? undefined} onClose={() => setDialog(null)} onAdded={refresh} />}
       {dialog === 'install' && <InstallDialog devices={devices} preselect={selected} onClose={() => setDialog(null)} />}
     </div>
   );
