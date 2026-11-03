@@ -24,6 +24,13 @@ export interface ScanState {
   finishedAt: string | null;
   results: FoundHost[];
   subnets: string[];
+  lanReachable: boolean | null;
+}
+
+export interface ProbeResult {
+  host: string;
+  ports: Record<'adb' | 'androidTvRemote' | 'cast', { port: number; result: string }>;
+  info: { name?: string; model?: string; manufacturer?: string } | null;
 }
 
 export interface DeviceInfo {
@@ -85,8 +92,9 @@ export const api = {
   rename: (id: string, name: string) => req('PATCH', d(id), { name }),
   remove: (id: string) => req('DELETE', d(id)),
   connect: (id: string) => req('POST', `${d(id)}/connect`),
+  probe: (host: string) => req<ProbeResult>('POST', '/api/discovery/probe', { host }),
   lastScan: () => req<ScanState>('GET', '/api/discovery/last'),
-  scan: (subnet?: string) => req<{ results: FoundHost[]; subnets: string[] }>('POST', '/api/discovery/scan', subnet ? { subnet } : {}),
+  scan: (subnet?: string) => req<{ results: FoundHost[]; subnets: string[]; lanReachable: boolean | null }>('POST', '/api/discovery/scan', subnet ? { subnet } : {}),
   info: (id: string) => req<DeviceInfo>('GET', `${d(id)}/info`),
   apps: (id: string, system: boolean) => req<AppInfo[]>('GET', `${d(id)}/apps?system=${system}`),
   launch: (id: string, pkg: string) => req('POST', `${d(id)}/apps/${p(pkg)}/launch`),

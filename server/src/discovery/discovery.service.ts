@@ -28,12 +28,34 @@ export interface ScanState {
   results: FoundHost[];
   /** какие /24 подсети сканировались в последний раз */
   subnets: string[];
+  /**
+   * Видит ли сервер локальную сеть: отвечает ли роутер (x.x.x.1) хоть на одном порту.
+   * false почти всегда значит, что контейнер/процесс отрезан от LAN
+   * (на macOS — нет разрешения «Локальная сеть» для Docker).
+   */
+  lanReachable: boolean | null;
 }
 
 const ADB_PORT = 5555;
 const ATV_REMOTE_PORT = 6466; // Android TV Remote Service (есть на всех Android TV / Google TV)
 const CAST_PORT = 8009; // Google Cast
 const CAST_HTTP_PORT = 8008;
+
+/** Подробная проверка порта: open / закрыт (refused) / нет ответа (timeout) / код ошибки сети. */
+export function probeDetailed(host: string, port: number, timeoutMs = 1500): Promise<string> {
+  return new Promise((resolve) => {
+    const s = new Socket();
+    const done = (r: string) => {
+      s.destroy();
+      resolve(r);
+    };
+    s.setTimeout(timeoutMs);
+    s.once('connect', () => done('open'));
+    s.once('timeout', () => done('timeout'));
+    s.once('error', (e: NodeJS.ErrnoException) => done(e.code === 'ECONNREFUSED' ? 'closed' : e.code ?? 'error'));
+    s.connect(port, host);
+  });
+}
 
 function probe(host: string, port: number, timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -95,7 +117,7 @@ export class DiscoveryService implements OnApplicationBootstrap, OnModuleDestroy
   private readonly log = new Logger(DiscoveryService.name);
   private bonjour?: Bonjour;
   private current?: Promise<FoundHost[]>;
-  state: ScanState = { running: false, startedAt: null, finishedAt: null, results: [], subnets: [] };
+  state: ScanState = { running: false, startedAt: null, finishedAt: null, results: [], subnets: [], lanReachable: null };
 
   onApplicationBootstrap() {
     // Автоскан при запуске сервера, чтобы интерфейс сразу показал найденные устройства
@@ -106,6 +128,7 @@ export class DiscoveryService implements OnApplicationBootstrap, OnModuleDestroy
   async scanSubnets(subnet?: string, timeoutMs = Number(process.env.SCAN_TIMEOUT_MS) || 800): Promise<FoundHost[]> {
     const prefixes = subnet ? [toPrefix(subnet)] : defaultPrefixes();
     this.state.subnets = prefixes.map((p) => `${p}.0/24`);
+    this.state.lanReachable = await this.checkLan(prefixes);
     const hosts: string[] = [];
     for (const p of prefixes) for (let i = 1; i < 255; i++) hosts.push(`${p}.${i}`);
 
@@ -139,6 +162,24 @@ export class DiscoveryService implements OnApplicationBootstrap, OnModuleDestroy
     );
     this.log.log(`Скан ${prefixes.join(', ')}: найдено ${found.length}`);
     return found;
+  }
+
+  /** Пробуем роутер (.1 и .254) на типичных портах: refused тоже считается ответом. */
+  private async checkLan(prefixes: string[]): Promise<boolean> {
+    const checks = prefixes.flatMap((p) =>
+      [`${p}.1`, `${p}.254`].flatMap((h) => [80, 443, 53].map((port) => probeDetailed(h, port, 1200))),
+    );
+    const res = await Promise.all(checks);
+    return res.some((r) => r === 'open' || r === 'closed');
+  }
+
+  /** Проверка конкретного IP: какие порты открыты и что отвечает сеть. */
+  async probeHost(host: string) {
+    const ports = { adb: ADB_PORT, androidTvRemote: ATV_REMOTE_PORT, cast: CAST_PORT };
+    const entries = await Promise.all(
+      Object.entries(ports).map(async ([k, p]) => [k, { port: p, result: await probeDetailed(host, p) }] as const),
+    );
+    return { host, ports: Object.fromEntries(entries), info: await castInfo(host) };
   }
 
   /** mDNS: Google Cast, Android TV Remote и беспроводная отладка Android 11+. */

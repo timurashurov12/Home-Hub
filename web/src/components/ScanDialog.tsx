@@ -1,8 +1,16 @@
-import { Cast, CircleCheck, Plus, Radar, Tv, TriangleAlert, Wifi } from 'lucide-react';
+import { Cast, CircleCheck, Plus, Radar, Stethoscope, Tv, TriangleAlert, Wifi } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { api, autoScanPref, type Device, type FoundHost } from '../api/client';
+import { api, autoScanPref, type Device, type FoundHost, type ProbeResult } from '../api/client';
 import { useAction } from '../toast';
 import { Modal } from './Modal';
+
+const PROBE_TEXT: Record<string, string> = {
+  open: 'открыт',
+  closed: 'закрыт (устройство отвечает)',
+  timeout: 'нет ответа',
+  EHOSTUNREACH: 'хост недоступен',
+  ENETUNREACH: 'сеть недоступна',
+};
 
 const KIND = {
   'android-tv': { icon: Tv, text: 'Android TV' },
@@ -25,15 +33,25 @@ export function ScanDialog({ known, initial, onClose, onAdded }: {
   const [busy, setBusy] = useState<string | null>(null);
   const [auto, setAuto] = useState(autoScanPref.get());
   const [subnets, setSubnets] = useState<string[]>([]);
+  const [lan, setLan] = useState<boolean | null>(null);
+  const [probeIp, setProbeIp] = useState('');
+  const [probe, setProbe] = useState<ProbeResult | null>(null);
+  const [probing, setProbing] = useState(false);
   useEffect(() => {
-    api.lastScan().then((s) => setSubnets(s.subnets)).catch(() => undefined);
+    api.lastScan().then((s) => { setSubnets(s.subnets); setLan(s.lanReachable); }).catch(() => undefined);
   }, []);
+
+  const runProbe = async () => {
+    setProbing(true);
+    setProbe((await run(() => api.probe(probeIp.trim()))) ?? null);
+    setProbing(false);
+  };
 
   const scan = async () => {
     setScanning(true);
     const r = await run(() => api.scan(subnet || undefined));
     setFound(r?.results ?? []);
-    if (r) setSubnets(r.subnets);
+    if (r) { setSubnets(r.subnets); setLan(r.lanReachable); }
     setScanning(false);
   };
 
@@ -84,6 +102,13 @@ export function ScanDialog({ known, initial, onClose, onAdded }: {
               <TriangleAlert size={12} /> Похоже, это внутренняя сеть Docker. Укажи домашнюю подсеть выше или в SCAN_SUBNETS в .env
             </div>
           )}
+        </div>
+      )}
+      {lan === false && !scanning && (
+        <div className="result err">
+          <TriangleAlert size={16} /> Сервер не видит локальную сеть: даже роутер не отвечает. Если TV Hub запущен в Docker на
+          macOS, включи Docker в «Системные настройки → Конфиденциальность и безопасность → Локальная сеть» и перезапусти Docker
+          Desktop, или запусти TV Hub без Docker: <code>./scripts/start-mac.sh</code>
         </div>
       )}
       {subnets.length === 0 && found?.length === 0 && (
@@ -153,6 +178,29 @@ export function ScanDialog({ known, initial, onClose, onAdded }: {
         <input placeholder="192.168.1.50:5555" value={manual} onChange={(e) => setManual(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addManual()} />
         <button onClick={addManual} disabled={!manual || !!busy}>Подключить</button>
       </div>
+
+      <h4>Проверить IP</h4>
+      <div className="row">
+        <input placeholder="IP устройства, напр. 192.168.0.50" value={probeIp} onChange={(e) => setProbeIp(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && probeIp && runProbe()} />
+        <button onClick={runProbe} disabled={!probeIp || probing}><Stethoscope size={16} /> {probing ? 'Проверяю…' : 'Проверить'}</button>
+      </div>
+      {probe && (
+        <div className="probe small">
+          {probe.info?.name && <div><b>{probe.info.name}</b> {probe.info.model && <span className="muted">{probe.info.model}</span>}</div>}
+          {Object.entries(probe.ports).map(([k, v]) => (
+            <div key={k}>
+              {{ adb: 'ADB', androidTvRemote: 'Пульт Android TV', cast: 'Google Cast' }[k]} ({v.port}):{' '}
+              <span className={v.result === 'open' ? 'ok-text' : 'muted'}>{PROBE_TEXT[v.result] ?? v.result}</span>
+            </div>
+          ))}
+          {probe.ports.adb.result !== 'open' && probe.ports.cast.result === 'open' && (
+            <div className="warn-text"><TriangleAlert size={12} /> Устройство в сети, но ADB закрыт: включи «Отладку по сети / USB» в настройках разработчика</div>
+          )}
+          {Object.values(probe.ports).every((v) => v.result !== 'open' && v.result !== 'closed') && (
+            <div className="warn-text"><TriangleAlert size={12} /> Адрес не отвечает: устройство выключено, IP другой, или сервер не видит локальную сеть</div>
+          )}
+        </div>
+      )}
 
       <label className="check">
         <input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); autoScanPref.set(e.target.checked); }} /> Искать новые устройства при запуске
